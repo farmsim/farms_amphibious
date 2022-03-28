@@ -7,7 +7,7 @@ import numpy as np
 from numpy.random import MT19937, RandomState, SeedSequence
 from farms_data.options import Options
 from farms_data.model.options import (
-    ModelOptions,
+    AnimatOptions,
     MorphologyOptions,
     LinkOptions,
     JointOptions,
@@ -55,7 +55,7 @@ def options_kwargs_keys():
     ]
 
 
-class AmphibiousOptions(ModelOptions):
+class AmphibiousOptions(AnimatOptions):
     """Simulation options"""
 
     def __init__(self, **kwargs):

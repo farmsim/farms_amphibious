@@ -3,7 +3,7 @@
 from typing import Dict, List, Tuple, Callable, Union
 import numpy as np
 from farms_data.amphibious.data import AmphibiousData
-from farms_data.model.control import ModelController, ControlType
+from farms_data.model.control import AnimatController, ControlType
 from ..model.options import AmphibiousOptions
 from .drive import DescendingDrive
 from .network import NetworkODE
@@ -13,7 +13,7 @@ from .passive_cy import PassiveJointCy
 from .ekeberg import EkebergMuscleCy
 
 
-class AmphibiousController(ModelController):
+class AmphibiousController(AnimatController):
     """Amphibious network"""
 
     def __init__(
@@ -28,11 +28,11 @@ class AmphibiousController(ModelController):
             for joint in animat_options.control.joints
         }
         super().__init__(
-            joints_names=ModelController.joints_from_control_types(
+            joints_names=AnimatController.joints_from_control_types(
                 joints_names=joints_names,
                 joints_control_types=joints_control_types,
             ),
-            max_torques=ModelController.max_torques_from_control_types(
+            max_torques=AnimatController.max_torques_from_control_types(
                 joints_names=joints_names,
                 max_torques={
                     joint.joint_name: joint.max_torque

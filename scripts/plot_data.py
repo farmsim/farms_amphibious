@@ -8,7 +8,7 @@ from cycler import cycler
 import matplotlib.pyplot as plt
 
 import farms_pylog as pylog
-from farms_data.amphibious.animat_data import AnimatData
+from farms_data.amphibious.data import AmphibiousData
 from farms_data.simulation.options import SimulationOptions
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
@@ -68,7 +68,7 @@ def main():
     # Load data
     animat_options = AmphibiousOptions.load(clargs.animat)
     simulation_options = SimulationOptions.load(clargs.simulation)
-    animat_data = AnimatData.from_file(clargs.data)
+    animat_data = AmphibiousData.from_file(clargs.data)
 
     # Plot simulation data
     times = np.arange(

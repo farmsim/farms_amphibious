@@ -1,7 +1,7 @@
 """Amphibious"""
 
 import pybullet
-from farms_data.model.control import ModelController
+from farms_data.model.control import AnimatController
 from farms_bullet.model.animat import Animat
 
 
@@ -10,7 +10,7 @@ class Amphibious(Animat):
 
     def __init__(
             self,
-            controller: ModelController,
+            controller: AnimatController,
             timestep: float,
             iterations: int,
             **kwargs,

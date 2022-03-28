@@ -5,7 +5,7 @@ import time
 import numpy as np
 import farms_pylog as pylog
 from farms_data.amphibious.data import AmphibiousData
-from farms_bullet.model.control import ModelController, ControlType
+from farms_bullet.model.control import AnimatController, ControlType
 from farms_data.utils.profile import profile
 from farms_amphibious.experiment.simulation import (
     setup_from_clargs,
@@ -14,7 +14,7 @@ from farms_amphibious.experiment.simulation import (
 )
 
 
-class MuscleReplayController(ModelController):
+class MuscleReplayController(AnimatController):
     """Muscle replay controller"""
 
     def __init__(self, joints, animat_options, animat_data, muscles_csv, designators):

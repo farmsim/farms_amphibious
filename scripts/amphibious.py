@@ -41,7 +41,7 @@ def main():
         animat_options,
         sim_options,
         arena_options,
-    ) = setup_from_clargs(model_options_loader=AmphibiousOptions)
+    ) = setup_from_clargs(animat_options_loader=AmphibiousOptions)
     simulator = {
         'MUJOCO': Simulator.MUJOCO,
         'PYBULLET': Simulator.PYBULLET,

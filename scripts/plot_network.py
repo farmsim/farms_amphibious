@@ -13,7 +13,7 @@ from moviepy.editor import VideoClip
 
 import farms_pylog as pylog
 from farms_data.utils.profile import profile
-from farms_data.amphibious.animat_data import AnimatData
+from farms_data.amphibious.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
 
@@ -74,7 +74,7 @@ def main(use_moviepy=True):
     # Setup
     animat_options = AmphibiousOptions.load(args.animat)
     # simulation_options = SimulationOptions.load(args.simulation)
-    data = AnimatData.from_file(args.data)
+    data = AmphibiousData.from_file(args.data)
     network_anim = plot_networks_maps(
         data=data,
         animat_options=animat_options,
