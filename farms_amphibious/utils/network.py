@@ -10,7 +10,7 @@ from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import farms_pylog as pylog
 from farms_data.amphibious.data import AmphibiousData
-from farms_data.amphibious.animat_data_cy import ConnectionType
+from farms_data.amphibious.data_cy import ConnectionType
 
 from ..model.convention import AmphibiousConvention
 from ..model.options import AmphibiousOptions  # AmphibiousMorphologyOptions
@@ -320,7 +320,7 @@ class NetworkFigure:
         self.time.set_text(f'Time: {frame*1e-3*self.interval:02.1f} [s]')
 
         # Oscillator
-        phases = self.network.phases(iteration)
+        phases = self.data.state.phases(iteration)
         for oscillator, phase in zip(self.oscillators, phases):
             value = 0.5*(1+np.cos(phase))
             oscillator.set_facecolor(self.cmap_phases(value))

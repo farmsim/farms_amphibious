@@ -6,8 +6,8 @@ from farms_data.sensors.data_cy cimport (
     ContactsArrayCy,
     HydrodynamicsArrayCy,
 )
-from farms_data.amphibious.animat_data_cy cimport (
-    AnimatDataCy,
+from farms_data.amphibious.data_cy cimport (
+    AmphibiousDataCy,
     NetworkParametersCy,
     DriveArrayCy,
     OscillatorsCy,
@@ -57,15 +57,6 @@ cpdef void ode_contacts(
 ) nogil
 
 
-cpdef void ode_contacts_tegotae(
-    unsigned int iteration,
-    DTYPEv1 state,
-    DTYPEv1 dstate,
-    ContactsArrayCy contacts,
-    ContactsConnectivityCy contacts_connectivity,
-) nogil
-
-
 cpdef void ode_hydro(
     unsigned int iteration,
     DTYPEv1 state,
@@ -91,6 +82,6 @@ cpdef DTYPEv1 ode_oscillators_sparse(
     DTYPEv1 state,
     DTYPEv1 dstate,
     unsigned int iteration,
-    AnimatDataCy data,
+    AmphibiousDataCy data,
     unsigned int nosfb=*,  # No sensory feedback
 ) nogil

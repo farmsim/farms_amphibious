@@ -17,7 +17,7 @@ from farms_amphibious.control.drive import drive_from_config, plot_trajectory
 
 plt.rc('axes', prop_cycle=(
     cycler(linestyle=['-', '--', '-.', ':'])
-    *cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
+    * cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
 ))
 
 

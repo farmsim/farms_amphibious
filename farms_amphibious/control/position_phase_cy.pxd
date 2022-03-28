@@ -5,7 +5,7 @@ include 'types.pxd'
 cimport numpy as np
 import numpy as np
 from farms_data.sensors.data_cy cimport JointSensorArrayCy
-from farms_data.amphibious.animat_data_cy cimport OscillatorNetworkStateCy
+from farms_data.amphibious.data_cy cimport OscillatorNetworkStateCy
 from .joints_control_cy cimport JointsControlCy
 
 

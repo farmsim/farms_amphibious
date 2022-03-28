@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 
 import farms_pylog as pylog
 from farms_data.simulation.options import Simulator
-from farms_data.amphibious.animat_data import AnimatData
+from farms_data.amphibious.data import AmphibiousData
 from farms_amphibious.utils.network import plot_networks_maps
 
 
@@ -57,7 +57,7 @@ def prompt_postprocessing(sim, animat_options, query=True, **kwargs):
     )
     if save_data and verify:
         pylog.debug('Data saved, now loading back to check validity')
-        AnimatData.from_file(os.path.join(log_path, 'simulation.hdf5'))
+        AmphibiousData.from_file(os.path.join(log_path, 'simulation.hdf5'))
         pylog.debug('Data successfully saved and logged back')
 
     # Save MuJoCo MJCF

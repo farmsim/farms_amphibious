@@ -1,7 +1,6 @@
 """Amphibious"""
 
 import pybullet
-
 from farms_data.model.control import ModelController
 from farms_bullet.model.animat import Animat
 
@@ -18,11 +17,11 @@ class Amphibious(Animat):
     ):
         super().__init__(
             data=controller.animat_data if controller is not None else None,
+            controller=controller,
             **kwargs,
         )
         self.timestep: float = timestep
         self.n_iterations: int = iterations
-        self.controller: ModelController = controller
         self.hydrodynamics_plot: bool = None
 
     def spawn(self):

@@ -11,7 +11,7 @@ from libc.math cimport sin, cos, fabs
 # from libc.stdlib cimport malloc, free
 from libc.stdio cimport printf
 
-from farms_data.amphibious.animat_data_cy cimport ConnectionType
+from farms_data.amphibious.data_cy cimport ConnectionType
 
 
 cdef inline DTYPE phase(
@@ -178,37 +178,6 @@ cpdef inline void ode_contacts(
             )
 
 
-cpdef inline void ode_contacts_tegotae(
-    unsigned int iteration,
-    DTYPEv1 state,
-    DTYPEv1 dstate,
-    ContactsArrayCy contacts,
-    ContactsConnectivityCy contacts_connectivity,
-) nogil:
-    """Sensory feedback - Contacts
-
-    Can affect d_phase and d_amplitude
-
-    """
-    cdef DTYPE contact_reaction
-    cdef unsigned int i, i0, i1
-    for i in range(contacts_connectivity.n_connections):
-        i0 = contacts_connectivity.connections.array[i, 0]
-        i1 = contacts_connectivity.connections.array[i, 1]
-        # contact_weight*contact_reaction
-        # contact_reaction = (
-        #     contacts.array[iteration, i1, 0]**2
-        #     + contacts.array[iteration, i1, 1]**2
-        #     + contacts.array[iteration, i1, 2]**2
-        # )**0.5
-        contact_reaction = fabs(contacts.c_reaction_z(iteration, i1))
-        dstate[i0] += (
-            contacts_connectivity.c_weight(i)
-            *saturation(contact_reaction, 10)  # Saturation
-            *sin(state[i0])  # For Tegotae
-        )
-
-
 cpdef inline void ode_hydro(
     unsigned int iteration,
     DTYPEv1 state,
@@ -280,7 +249,7 @@ cpdef inline DTYPEv1 ode_oscillators_sparse(
     DTYPEv1 state,
     DTYPEv1 dstate,
     unsigned int iteration,
-    AnimatDataCy data,
+    AmphibiousDataCy data,
     unsigned int nosfb=0,  # No sensory feedback
 ) nogil:
     """Complete CPG network ODE"""
