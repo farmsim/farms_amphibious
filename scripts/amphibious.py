@@ -29,6 +29,7 @@ try:
     ENGINE_BULLET = True
 except ImportError as err:
     pylog.error(err)
+    AmphibiousPybulletSimulation = None
 
 
 def main():
