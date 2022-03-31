@@ -19,16 +19,16 @@ from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.control.amphibious import AmphibiousController
 from farms_amphibious.control.drive import drive_from_config
 from farms_amphibious.callbacks import SwimmingCallback
-from farms_amphibious.bullet.animat import Amphibious
-from farms_amphibious.bullet.simulation import AmphibiousPybulletSimulation
 from farms_amphibious.utils.parse_args import sim_parse_args
 
 ENGINE_BULLET = False
 try:
+    from farms_amphibious.bullet.animat import Amphibious
     from farms_amphibious.bullet.simulation import AmphibiousPybulletSimulation
     ENGINE_BULLET = True
 except ImportError as err:
     pylog.error(err)
+    Amphibious = None
     AmphibiousPybulletSimulation = None
 
 
