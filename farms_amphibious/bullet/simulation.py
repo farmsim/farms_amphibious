@@ -60,7 +60,7 @@ def get_arena(
     meters = simulation_options.units.meters
     orientation = Rotation.from_euler(
         seq='xyz',
-        angles=arena_options.orientation,
+        angles=arena_options.spawn.pose[3:],
         degrees=False,
     ).as_quat()
 
@@ -68,7 +68,7 @@ def get_arena(
     arena = DescriptionFormatModel(
         path=arena_options.sdf,
         spawn_options={
-            'posObj': [pos*meters for pos in arena_options.position],
+            'posObj': [pos*meters for pos in arena_options.spawn.pose[:3]],
             'ornObj': orientation,
         },
         load_options={'units': simulation_options.units},
