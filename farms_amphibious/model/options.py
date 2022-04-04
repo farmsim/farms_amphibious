@@ -121,7 +121,7 @@ class AmphibiousOptions(AnimatOptions):
         ] + [
             osc.initial_amplitude for osc in self.control.network.oscillators
         ] + [
-            joint.initial_position for joint in self.morphology.joints
+            joint.initial[0] for joint in self.morphology.joints
         ]
 
 
@@ -248,15 +248,11 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                     mass_multiplier=links_mass_multiplier,
                     swimming=name in links_swimming,
                     drag_coefficients=drag,
-                    pybullet_dynamics={
+                    friction=[lateral, spin, roll],
+                    extras={
+                        'restitution': restitution,
                         'linearDamping': linear,
                         'angularDamping': angular,
-                        'restitution': restitution,
-                        'lateralFriction': lateral,
-                        'spinningFriction': spin,
-                        'rollingFriction': roll,
-                        # 'contactStiffness': 1e2,
-                        # 'contactDamping': 1e-3,
                     },
                 )
                 for (
@@ -287,20 +283,19 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             'joints_damping',
             [0 for name in joints_names]
         )
-        max_torque = kwargs.pop('max_torque', np.inf)
         max_velocity = kwargs.pop('max_velocity', np.inf)
         options['joints'] = kwargs.pop(
             'joints',
             [
                 JointOptions(
                     name=name,
-                    initial_position=position,
-                    initial_velocity=velocity,
-                    pybullet_dynamics={
-                        'jointDamping': damping,
-                        'maxJointVelocity': max_velocity,
-                        'jointLimitForce': max_torque,
-                    },
+                    initial=[position, velocity],
+                    damping=damping,
+                    limits=[
+                        [-np.inf, np.inf],
+                        [-max_velocity, max_velocity],
+                    ],
+                    extras={},
                 )
                 for name, position, velocity, damping in zip(
                     joints_names,
@@ -356,22 +351,19 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
 
 
 class AmphibiousLinkOptions(LinkOptions):
-    """Amphibious link options
-
-    The Pybullet dynamics represent the input arguments called with
-    pybullet.changeDynamics(...).
-    """
+    """Amphibious link options"""
 
     def __init__(self, **kwargs):
         super().__init__(
             name=kwargs.pop('name'),
             collisions=kwargs.pop('collisions'),
-            mass_multiplier=kwargs.pop('mass_multiplier'),
-            pybullet_dynamics=kwargs.pop('pybullet_dynamics', {}),
+            friction=kwargs.pop('friction'),
+            extras=kwargs.pop('extras', {}),
         )
         self.density = kwargs.pop('density')
         self.swimming = kwargs.pop('swimming')
         self.drag_coefficients = kwargs.pop('drag_coefficients')
+        self.mass_multiplier: float = kwargs.pop('mass_multiplier')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
@@ -553,7 +545,7 @@ class AmphibiousControlOptions(ControlOptions):
                 AmphibiousJointControlOptions(
                     joint_name=None,
                     control_types=[],
-                    max_torque=None,
+                    limits_torque=None,
                     equation=None,
                     transform=AmphibiousJointControlTransformOptions(
                         gain=None,
@@ -624,8 +616,11 @@ class AmphibiousControlOptions(ControlOptions):
                     'passive': ['velocity', 'torque'],
                     'passive_explicit': ['torque'],
                 }[joint.equation]
-            if joint.max_torque is None:
-                joint.max_torque = max_torques[joint.joint_name]
+            if joint.limits_torque is None:
+                joint.limits_torque = [
+                    -max_torques[joint.joint_name],
+                    +max_torques[joint.joint_name],
+                ]
 
             # Transform
             if joint.transform.gain is None:
@@ -654,7 +649,7 @@ class AmphibiousControlOptions(ControlOptions):
             AmphibiousJointControlOptions(
                 joint_name=joint_name,
                 control_types=['velocity', 'torque'],
-                max_torque=np.inf,
+                limits_torque=[-np.inf, np.inf],
                 equation='passive',
                 transform=AmphibiousJointControlTransformOptions(
                     gain=1,
@@ -756,7 +751,7 @@ class AmphibiousJointControlOptions(JointControlOptions):
         super().__init__(
             joint_name=kwargs.pop('joint_name'),
             control_types=kwargs.pop('control_types'),
-            max_torque=kwargs.pop('max_torque'),
+            limits_torque=kwargs.pop('limits_torque'),
         )
         self.equation: str = kwargs.pop('equation')
         transform = kwargs.pop('transform')

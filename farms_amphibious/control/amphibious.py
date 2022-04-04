@@ -35,7 +35,7 @@ class AmphibiousController(AnimatController):
             max_torques=AnimatController.max_torques_from_control_types(
                 joints_names=joints_names,
                 max_torques={
-                    joint.joint_name: joint.max_torque
+                    joint.joint_name: joint.limits_torque[1]
                     for joint in animat_options.control.joints
                 },
                 joints_control_types=joints_control_types,
