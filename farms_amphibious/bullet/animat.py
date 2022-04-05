@@ -1,7 +1,7 @@
 """Amphibious"""
 
 import pybullet
-from farms_data.model.control import AnimatController
+from farms_core.model.control import AnimatController
 from farms_bullet.model.animat import Animat
 
 

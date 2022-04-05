@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.spatial import KDTree
 from simple_pid import PID
 
-from farms_data.io.yaml import yaml2pyobject
+from farms_core.io.yaml import yaml2pyobject
 
 
 class PotentialMap(ABC):

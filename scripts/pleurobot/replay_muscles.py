@@ -4,9 +4,9 @@
 import time
 import numpy as np
 import farms_pylog as pylog
-from farms_data.amphibious.data import AmphibiousData
+from farms_core.amphibious.data import AmphibiousData
 from farms_bullet.model.control import AnimatController, ControlType
-from farms_data.utils.profile import profile
+from farms_core.utils.profile import profile
 from farms_amphibious.experiment.simulation import (
     setup_from_clargs,
     simulation,

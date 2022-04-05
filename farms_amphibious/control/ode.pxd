@@ -1,12 +1,12 @@
 """Cython controller code"""
 
 include 'types.pxd'
-from farms_data.sensors.data_cy cimport (
+from farms_core.sensors.data_cy cimport (
     JointSensorArrayCy,
     ContactsArrayCy,
     HydrodynamicsArrayCy,
 )
-from farms_data.amphibious.data_cy cimport (
+from farms_core.amphibious.data_cy cimport (
     AmphibiousDataCy,
     NetworkParametersCy,
     DriveArrayCy,

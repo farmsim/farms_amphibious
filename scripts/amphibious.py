@@ -5,9 +5,9 @@ import time
 from typing import Union
 
 import farms_pylog as pylog
-from farms_data.utils.profile import profile
-from farms_data.simulation.options import Simulator
-from farms_data.amphibious.data import AmphibiousData
+from farms_core.utils.profile import profile
+from farms_core.simulation.options import Simulator
+from farms_core.amphibious.data import AmphibiousData
 from farms_mujoco.simulation.simulation import Simulation as MuJoCoSimulation
 from farms_sim.simulation import (
     setup_from_clargs,

@@ -2,8 +2,8 @@
 
 from typing import Dict, List, Tuple, Callable, Union
 import numpy as np
-from farms_data.amphibious.data import AmphibiousData
-from farms_data.model.control import AnimatController, ControlType
+from farms_core.amphibious.data import AmphibiousData
+from farms_core.model.control import AnimatController, ControlType
 from ..model.options import AmphibiousOptions
 from .drive import DescendingDrive
 from .network import NetworkODE

@@ -5,8 +5,8 @@ from functools import partial
 from itertools import product
 import numpy as np
 from numpy.random import MT19937, RandomState, SeedSequence
-from farms_data.options import Options
-from farms_data.model.options import (
+from farms_core.options import Options
+from farms_core.model.options import (
     AnimatOptions,
     MorphologyOptions,
     LinkOptions,

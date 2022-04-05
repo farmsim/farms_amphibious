@@ -4,7 +4,7 @@ include 'types.pxd'
 
 cimport numpy as np
 import numpy as np
-from farms_data.sensors.data_cy cimport JointSensorArrayCy
+from farms_core.sensors.data_cy cimport JointSensorArrayCy
 
 
 cdef np.ndarray get_joints_data(

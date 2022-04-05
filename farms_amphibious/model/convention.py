@@ -1,6 +1,6 @@
 """Oscillator naming convention"""
 
-from farms_data.options import Options
+from farms_core.options import Options
 
 
 class AmphibiousConvention(Options):

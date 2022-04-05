@@ -1,6 +1,6 @@
 """Callbacks"""
 
-from farms_data.sensors.sensor_convention import sc
+from farms_core.sensors.sensor_convention import sc
 from farms_mujoco.swimming.drag import SwimmingHandler
 from farms_mujoco.simulation.task import TaskCallback
 from .model.options import AmphibiousOptions

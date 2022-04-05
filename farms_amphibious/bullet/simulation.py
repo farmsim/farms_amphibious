@@ -7,8 +7,8 @@ import numpy as np
 from imageio import imread
 from scipy.spatial.transform import Rotation
 
-from farms_data.model.options import ArenaOptions
-from farms_data.simulation.options import SimulationOptions
+from farms_core.model.options import ArenaOptions
+from farms_core.simulation.options import SimulationOptions
 
 
 from farms_bullet.model.animat import Animat
