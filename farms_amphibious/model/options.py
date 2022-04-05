@@ -58,14 +58,14 @@ def options_kwargs_keys():
 class AmphibiousOptions(AnimatOptions):
     """Simulation options"""
 
-    def __init__(self, **kwargs):
+    def __init__(self, sdf: str, **kwargs):
         super().__init__(
+            sdf=sdf,
             spawn=SpawnOptions(**kwargs.pop('spawn')),
             morphology=AmphibiousMorphologyOptions(**kwargs.pop('morphology')),
             control=AmphibiousControlOptions(**kwargs.pop('control')),
         )
         self.name = kwargs.pop('name')
-        self.sdf_path = kwargs.pop('sdf_path')
         self.physics = AmphibiousPhysicsOptions(**kwargs.pop('physics'))
         self.show_hydrodynamics = kwargs.pop('show_hydrodynamics')
         self.scale_hydrodynamics = kwargs.pop('scale_hydrodynamics')
@@ -81,8 +81,8 @@ class AmphibiousOptions(AnimatOptions):
     def from_options(cls, kwargs=None):
         """From options"""
         options = {}
+        options['sdf'] = kwargs.pop('sdf_path')
         options['name'] = kwargs.pop('name', 'Animat')
-        options['sdf_path'] = kwargs.pop('sdf_path')
         options['morphology'] = kwargs.pop(
             'morphology',
             AmphibiousMorphologyOptions.from_options(kwargs),
