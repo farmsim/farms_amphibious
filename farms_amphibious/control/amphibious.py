@@ -24,8 +24,8 @@ class AmphibiousController(AnimatController):
             drive: DescendingDrive = None,
     ):
         joints_control_types: Dict[str, List[ControlType]] = {
-            joint.joint_name: ControlType.from_string_list(joint.control_types)
-            for joint in animat_options.control.joints
+            motor.joint_name: ControlType.from_string_list(motor.control_types)
+            for motor in animat_options.control.motors
         }
         super().__init__(
             joints_names=AnimatController.joints_from_control_types(
@@ -35,8 +35,8 @@ class AmphibiousController(AnimatController):
             max_torques=AnimatController.max_torques_from_control_types(
                 joints_names=joints_names,
                 max_torques={
-                    joint.joint_name: joint.limits_torque[1]
-                    for joint in animat_options.control.joints
+                    motor.joint_name: motor.limits_torque[1]
+                    for motor in animat_options.control.motors
                 },
                 joints_control_types=joints_control_types,
             ),
@@ -54,8 +54,8 @@ class AmphibiousController(AnimatController):
 
         # Equations
         equations = {
-            joint.joint_name: joint.equation
-            for joint in animat_options.control.joints
+            motor.joint_name: motor.equation
+            for motor in animat_options.control.motors
         }
         self.equations: Tuple[List[Callable]] = [[], [], []]
 
@@ -73,9 +73,9 @@ class AmphibiousController(AnimatController):
         if 'position' in equations.values():
             self.equations[ControlType.POSITION] += [self.positions_network]
             joints_indices = np.array([
-                joint_i
-                for joint_i, joint in enumerate(animat_options.control.joints)
-                if joint.equation == 'position'
+                motor_i
+                for motor_i, motor in enumerate(animat_options.control.motors)
+                if motor.equation == 'position'
             ], dtype=np.uintc)
             joints_names = np.array(
                 self.animat_data.sensors.joints.names,
@@ -97,9 +97,9 @@ class AmphibiousController(AnimatController):
         if 'phase' in equations.values():
             self.equations[ControlType.POSITION] += [self.phases_network]
             joints_indices = np.array([
-                joint_i
-                for joint_i, joint in enumerate(animat_options.control.joints)
-                if joint.equation == 'phase'
+                motor_i
+                for motor_i, motor in enumerate(animat_options.control.motors)
+                if motor.equation == 'phase'
             ], dtype=np.uintc)
             joints_names = np.array(
                 self.animat_data.sensors.joints.names,
@@ -125,9 +125,9 @@ class AmphibiousController(AnimatController):
                 continue
 
             joints_indices = np.array([
-                joint_i
-                for joint_i, joint in enumerate(animat_options.control.joints)
-                if joint.equation == torque_equation
+                motor_i
+                for motor_i, motor in enumerate(animat_options.control.motors)
+                if motor.equation == torque_equation
             ], dtype=np.uintc)
             joints_names = np.array(
                 self.animat_data.sensors.joints.names,
@@ -171,9 +171,9 @@ class AmphibiousController(AnimatController):
         if 'passive' in equations.values():
 
             joints_indices = np.array([
-                joint_i
-                for joint_i, joint in enumerate(animat_options.control.joints)
-                if joint.equation == 'passive'
+                motor_i
+                for motor_i, motor in enumerate(animat_options.control.motors)
+                if motor.equation == 'passive'
             ], dtype=np.uintc)
             joints_names = np.array(
                 self.animat_data.sensors.joints.names,
@@ -198,19 +198,19 @@ class AmphibiousController(AnimatController):
 
             self.network2joints['passive'] = PassiveJointCy(
                 stiffness_coefficients=np.array([
-                    joint.passive.stiffness_coefficient
-                    for joint in animat_options.control.joints
-                    if joint.equation == 'passive'
+                    motor.passive.stiffness_coefficient
+                    for motor in animat_options.control.motors
+                    if motor.equation == 'passive'
                 ], dtype=np.double),
                 damping_coefficients=np.array([
-                    joint.passive.damping_coefficient
-                    for joint in animat_options.control.joints
-                    if joint.equation == 'passive'
+                    motor.passive.damping_coefficient
+                    for motor in animat_options.control.motors
+                    if motor.equation == 'passive'
                 ], dtype=np.double),
                 friction_coefficients=np.array([
-                    joint.passive.friction_coefficient
-                    for joint in animat_options.control.joints
-                    if joint.equation == 'passive'
+                    motor.passive.friction_coefficient
+                    for motor in animat_options.control.motors
+                    if motor.equation == 'passive'
                 ], dtype=np.double),
                 joints_names=joints_names,
                 joints_data=self.animat_data.sensors.joints,
@@ -394,16 +394,16 @@ class JointsMap:
             for control_type in control_types
         ]
         transform_gains = {
-            joint.joint_name: joint.transform.gain
-            for joint in animat_options.control.joints
+            motor.joint_name: motor.transform.gain
+            for motor in animat_options.control.motors
         }
         self.transform_gain = np.array([
             transform_gains[joint]
             for joint in joints_names
         ])
         transform_bias = {
-            joint.joint_name: joint.transform.bias
-            for joint in animat_options.control.joints
+            motor.joint_name: motor.transform.bias
+            for motor in animat_options.control.motors
         }
         self.transform_bias = np.array([
             transform_bias[joint]

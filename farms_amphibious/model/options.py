@@ -13,7 +13,7 @@ from farms_data.model.options import (
     JointOptions,
     SpawnOptions,
     ControlOptions,
-    JointControlOptions,
+    MotorOptions,
     SensorsOptions,
 )
 from .convention import AmphibiousConvention
@@ -409,9 +409,9 @@ class AmphibiousControlOptions(ControlOptions):
     def __init__(self, **kwargs):
         super().__init__(
             sensors=(AmphibiousSensorsOptions(**kwargs.pop('sensors'))),
-            joints=[
-                AmphibiousJointControlOptions(**joint)
-                for joint in kwargs.pop('joints')
+            motors=[
+                AmphibiousMotorOptions(**motor)
+                for motor in kwargs.pop('motors')
             ],
         )
         self.n_oscillators = kwargs.pop('n_oscillators')
@@ -442,7 +442,7 @@ class AmphibiousControlOptions(ControlOptions):
                 'sensors',
                 AmphibiousSensorsOptions.options_from_kwargs(kwargs),
             ),
-            'joints': kwargs.pop('joints', {}),
+            'motors': kwargs.pop('motors', {}),
         })
         options['n_oscillators'] = kwargs.pop('n_oscillators', None)
         options['drive_config'] = kwargs.pop('drive_config', '')
@@ -473,7 +473,7 @@ class AmphibiousControlOptions(ControlOptions):
         for joint_i in range(convention.n_joints_body):
             for side_i in range(2):
                 offsets[convention.bodyjoint2index(joint_i=joint_i)] = (
-                    AmphibiousJointControlOffsetOptions(
+                    AmphibiousMotorOffsetOptions(
                         gain=1,
                         bias=0,
                         low=1,
@@ -518,7 +518,7 @@ class AmphibiousControlOptions(ControlOptions):
         if np.ndim(leg_joint_turn_gain) == 1:
             leg_joint_turn_gain = repeat([leg_joint_turn_gain]).tolist()
 
-        # Joints offsets for walking and swimming
+        # Motors offsets for walking and swimming
         for leg_i in range(convention.n_legs_pair()):
             for side_i in range(2):
                 for joint_i in range(convention.n_dof_legs):
@@ -526,7 +526,7 @@ class AmphibiousControlOptions(ControlOptions):
                         leg_i=leg_i,
                         side_i=side_i,
                         joint_i=joint_i,
-                    )] = AmphibiousJointControlOffsetOptions(
+                    )] = AmphibiousMotorOffsetOptions(
                         gain=(
                             leg_turn_gain[leg_i]
                             * leg_side_turn_gain[leg_i][side_i]
@@ -540,18 +540,18 @@ class AmphibiousControlOptions(ControlOptions):
                     )
 
         # Amphibious joints control
-        if not self.joints:
-            self.joints = [
-                AmphibiousJointControlOptions(
+        if not self.motors:
+            self.motors = [
+                AmphibiousMotorOptions(
                     joint_name=None,
                     control_types=[],
                     limits_torque=None,
                     equation=None,
-                    transform=AmphibiousJointControlTransformOptions(
+                    transform=AmphibiousMotorTransformOptions(
                         gain=None,
                         bias=None,
                     ),
-                    offsets=AmphibiousJointControlOffsetOptions(
+                    offsets=AmphibiousMotorOffsetOptions(
                         gain=None,
                         bias=None,
                         low=None,
@@ -600,7 +600,7 @@ class AmphibiousControlOptions(ControlOptions):
                 for joint_i, joint_name in enumerate(joints_names)
             },
         )
-        for joint_i, joint in enumerate(self.joints):
+        for joint_i, joint in enumerate(self.motors):
 
             # Control
             if joint.joint_name is None:
@@ -645,13 +645,13 @@ class AmphibiousControlOptions(ControlOptions):
         # Passive
         joints_passive = kwargs.pop('joints_passive', [])
         self.sensors.joints += [name for name, *_ in joints_passive]
-        self.joints += [
-            AmphibiousJointControlOptions(
+        self.motors += [
+            AmphibiousMotorOptions(
                 joint_name=joint_name,
                 control_types=['velocity', 'torque'],
                 limits_torque=[-np.inf, np.inf],
                 equation='passive',
-                transform=AmphibiousJointControlTransformOptions(
+                transform=AmphibiousMotorTransformOptions(
                     gain=1,
                     bias=0,
                 ),
@@ -716,36 +716,36 @@ class AmphibiousControlOptions(ControlOptions):
                 if muscle.epsilon is None:
                     muscle.epsilon = default_epsilon
 
-    def joints_offsets(self):
-        """Joints offsets"""
+    def motors_offsets(self):
+        """Motors offsets"""
         return [
             {
-                key: getattr(joint.offsets, key)
+                key: getattr(motor.offsets, key)
                 for key in ['gain', 'bias', 'low', 'high', 'saturation']
             }
-            for joint in self.joints
-            if joint.offsets is not None
+            for motor in self.motors
+            if motor.offsets is not None
         ]
 
-    def joints_offset_rates(self):
-        """Joints rates"""
+    def motors_offset_rates(self):
+        """Motors rates"""
         return [
-            joint.offsets.rate
-            for joint in self.joints
-            if joint.offsets is not None
+            motor.offsets.rate
+            for motor in self.motors
+            if motor.offsets is not None
         ]
 
-    def joints_transform_gain(self):
-        """Joints gain amplitudes"""
-        return [joint.transform.gain for joint in self.joints]
+    def motors_transform_gain(self):
+        """Motors gain amplitudes"""
+        return [motor.transform.gain for motor in self.motors]
 
-    def joints_transform_bias(self):
-        """Joints offset bias"""
-        return [joint.transform.bias for joint in self.joints]
+    def motors_transform_bias(self):
+        """Motors offset bias"""
+        return [motor.transform.bias for motor in self.motors]
 
 
-class AmphibiousJointControlOptions(JointControlOptions):
-    """Amphibious joint options"""
+class AmphibiousMotorOptions(MotorOptions):
+    """Amphibious motor options"""
 
     def __init__(self, **kwargs):
         super().__init__(
@@ -755,14 +755,14 @@ class AmphibiousJointControlOptions(JointControlOptions):
         )
         self.equation: str = kwargs.pop('equation')
         transform = kwargs.pop('transform')
-        self.transform: AmphibiousJointControlTransformOptions = (
-            AmphibiousJointControlTransformOptions(**transform)
+        self.transform: AmphibiousMotorTransformOptions = (
+            AmphibiousMotorTransformOptions(**transform)
             if transform is not None
             else None
         )
         offsets = kwargs.pop('offsets')
-        self.offsets: AmphibiousJointControlOffsetOptions = (
-            AmphibiousJointControlOffsetOptions(**offsets)
+        self.offsets: AmphibiousMotorOffsetOptions = (
+            AmphibiousMotorOffsetOptions(**offsets)
             if offsets is not None
             else None
         )
@@ -775,8 +775,8 @@ class AmphibiousJointControlOptions(JointControlOptions):
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
-class AmphibiousJointControlTransformOptions(Options):
-    """Amphibious joint options"""
+class AmphibiousMotorTransformOptions(Options):
+    """Amphibious motor options"""
 
     def __init__(self, **kwargs):
         super().__init__()
@@ -785,8 +785,8 @@ class AmphibiousJointControlTransformOptions(Options):
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
-class AmphibiousJointControlOffsetOptions(Options):
-    """Amphibious joint options"""
+class AmphibiousMotorOffsetOptions(Options):
+    """Amphibious motor options"""
 
     def __init__(self, **kwargs):
         super().__init__()
