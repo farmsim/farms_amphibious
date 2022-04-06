@@ -43,8 +43,8 @@ def animat_options():
         'weight_sens_contact_opposite': 2,
         'weight_sens_contact_following': 0,
         'weight_sens_contact_diagonal': 0,
-        'weight_sens_hydro_freq': -1,
-        'weight_sens_hydro_amp': 1,
+        'weight_sens_xfrc_freq': -1,
+        'weight_sens_xfrc_amp': 1,
         'legs_offsets_walking': [0, np.pi/32, 0, np.pi/8],
         'legs_offsets_swimming': [-2*np.pi/5, 0, 0, 0],
     }
@@ -123,13 +123,13 @@ def analysis(data, times, morphology):
             ])
         )
         pylog.info(
-            'Hydrodynamics connectivity information\n%s',
+            'Xfrc connectivity information\n%s',
             sep.join([
                 f'O_{connection[0]} <- link_{connection[1]}'
                 f' (type={connection[2]}, weight={weight})'
                 for connection, weight in zip(
-                    data.network.hydro_connectivity.connections.array,
-                    data.network.hydro_connectivity.weights.array,
+                    data.network.xfrc_connectivity.connections.array,
+                    data.network.xfrc_connectivity.weights.array,
                 )
             ])
         )
@@ -143,14 +143,14 @@ def analysis(data, times, morphology):
                 '     - Rates: {}',
                 '  - Connectivity shape: {}',
                 '  - Contacts connectivity shape: {}',
-                '  - Hydro connectivity shape: {}',
+                '  - Xfrc connectivity shape: {}',
             ]),
             np.shape(data.network.oscillators.intrinsic_frequencies.array),
             np.shape(data.network.oscillators.nominal_amplitudes.array),
             np.shape(data.network.oscillators.rates.array),
             np.shape(data.network.osc_connectivity.connections.array),
             np.shape(data.network.contacts_connectivity.connections.array),
-            np.shape(data.network.hydro_connectivity.connections.array),
+            np.shape(data.network.xfrc_connectivity.connections.array),
         )
 
         plot_networks_maps(morphology, data)

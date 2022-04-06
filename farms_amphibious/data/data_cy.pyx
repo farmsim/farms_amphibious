@@ -187,15 +187,15 @@ cdef class ContactsConnectivityCy(ConnectivityCy):
             self.weights = DoubleArray1D(None)
 
 
-cdef class HydroConnectivityCy(ConnectivityCy):
-    """Hydrodynamics connectivity array"""
+cdef class XfrcConnectivityCy(ConnectivityCy):
+    """External forces connectivity array"""
 
     def __init__(
             self,
             connections: NDArray[(Any, 3), Any],
             weights: NDArray[(Any,), np.double],
     ):
-        super(HydroConnectivityCy, self).__init__(connections)
+        super(XfrcConnectivityCy, self).__init__(connections)
         if connections is not None and list(connections):
             size = np.shape(connections)[0]
             assert size == len(weights), (

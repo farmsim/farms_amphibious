@@ -159,11 +159,11 @@ class OrientationFollower(DescendingDrive):
 
     def update_foward_control(self, iteration, indices):
         """Update drive"""
-        # hydro = np.array(
-        #     self.animat_data.sensors.hydrodynamics.forces(),
+        # xfrc = np.array(
+        #     self.animat_data.sensors.xfrc.forces(),
         #     copy=False,
         # )[iteration, indices, :]
-        # condition_hydro = np.count_nonzero(hydro) < int(0.85*len(indices)*3)
+        # condition_xfrc = np.count_nonzero(xfrc) < int(0.85*len(indices)*3)
         contacts = np.array(
             self.animat_data.sensors.contacts.array,
             copy=False,
@@ -171,7 +171,7 @@ class OrientationFollower(DescendingDrive):
         condition_contacts = np.sum(contacts) > 9.81*self.contact_threshold
         self.set_forward_drive(
             iteration=iteration,
-            # condition_hydro or
+            # condition_xfrc or
             value=2 if condition_contacts else 4,
         )
 

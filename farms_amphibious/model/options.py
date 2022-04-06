@@ -48,10 +48,10 @@ def options_kwargs_keys():
         'weight_sens_contact_opposite',
         'weight_sens_contact_following',
         'weight_sens_contact_diagonal',
-        'weight_sens_hydro_freq_up',
-        'weight_sens_hydro_freq_down',
-        'weight_sens_hydro_amp_up',
-        'weight_sens_hydro_amp_down',
+        'weight_sens_xfrc_freq_up',
+        'weight_sens_xfrc_freq_down',
+        'weight_sens_xfrc_amp_up',
+        'weight_sens_xfrc_amp_down',
     ]
 
 
@@ -67,8 +67,8 @@ class AmphibiousOptions(AnimatOptions):
         )
         self.name = kwargs.pop('name')
         self.physics = AmphibiousPhysicsOptions(**kwargs.pop('physics'))
-        self.show_hydrodynamics = kwargs.pop('show_hydrodynamics')
-        self.scale_hydrodynamics = kwargs.pop('scale_hydrodynamics')
+        self.show_xfrc = kwargs.pop('show_xfrc')
+        self.scale_xfrc = kwargs.pop('scale_xfrc')
         self.mujoco = kwargs.pop('mujoco')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
@@ -109,8 +109,8 @@ class AmphibiousOptions(AnimatOptions):
         else:
             options['control'] = AmphibiousControlOptions.from_options(kwargs)
             options['control'].defaults_from_convention(convention, kwargs)
-        options['show_hydrodynamics'] = kwargs.pop('show_hydrodynamics', False)
-        options['scale_hydrodynamics'] = kwargs.pop('scale_hydrodynamics', 1)
+        options['show_xfrc'] = kwargs.pop('show_xfrc', False)
+        options['scale_xfrc'] = kwargs.pop('scale_xfrc', 1)
         assert not kwargs, f'Unknown kwargs: {kwargs}'
         return cls(**options)
 
@@ -808,14 +808,14 @@ class AmphibiousSensorsOptions(SensorsOptions):
             joints=kwargs.pop('joints'),
             contacts=kwargs.pop('contacts'),
         )
-        self.hydrodynamics: List[str] = kwargs.pop('hydrodynamics')
+        self.xfrc: List[str] = kwargs.pop('xfrc')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
     @classmethod
     def options_from_kwargs(cls, kwargs):
         """Options from kwargs"""
         options = super(cls, cls).options_from_kwargs(kwargs)
-        options['hydrodynamics'] = kwargs.pop('sens_hydrodynamics', None)
+        options['xfrc'] = kwargs.pop('sens_xfrc', None)
         return options
 
     def defaults_from_convention(self, convention, kwargs):
@@ -832,8 +832,8 @@ class AmphibiousSensorsOptions(SensorsOptions):
             'sensors_contacts',
             convention.feet_links_names()
         )
-        self.hydrodynamics = kwargs.pop(
-            'sensors_hydrodynamics',
+        self.xfrc = kwargs.pop(
+            'sensors_xfrc',
             convention.links_names
         )
 
@@ -863,7 +863,7 @@ class AmphibiousNetworkOptions(Options):
         self.drive2osc = kwargs.pop('drive2osc', None)
         self.joint2osc = kwargs.pop('joint2osc', None)
         self.contact2osc = kwargs.pop('contact2osc', None)
-        self.hydro2osc = kwargs.pop('hydro2osc', None)
+        self.xfrc2osc = kwargs.pop('xfrc2osc', None)
 
         # Kwargs
         assert not kwargs, f'Unknown kwargs: {kwargs}'
@@ -879,7 +879,7 @@ class AmphibiousNetworkOptions(Options):
         # Connectivity
         for option in [
                 'osc2osc', 'drive2osc',
-                'joint2osc', 'contact2osc', 'hydro2osc',
+                'joint2osc', 'contact2osc', 'xfrc2osc',
         ]:
             options[option] = kwargs.pop(option, None)
         return cls(**options)
@@ -1158,13 +1158,13 @@ class AmphibiousNetworkOptions(Options):
                 kwargs.pop('weight_sens_contact_following', 0),
                 kwargs.pop('weight_sens_contact_diagonal', 0),
             )
-        if self.hydro2osc is None:
-            self.hydro2osc = self.default_hydro2osc(
+        if self.xfrc2osc is None:
+            self.xfrc2osc = self.default_xfrc2osc(
                 convention,
-                kwargs.pop('weight_sens_hydro_freq_up', 0),
-                kwargs.pop('weight_sens_hydro_freq_down', 0),
-                kwargs.pop('weight_sens_hydro_amp_up', 0),
-                kwargs.pop('weight_sens_hydro_amp_down', 0),
+                kwargs.pop('weight_sens_xfrc_freq_up', 0),
+                kwargs.pop('weight_sens_xfrc_freq_down', 0),
+                kwargs.pop('weight_sens_xfrc_amp_up', 0),
+                kwargs.pop('weight_sens_xfrc_amp_down', 0),
             )
 
     def drives_init(self):
@@ -1882,14 +1882,14 @@ class AmphibiousNetworkOptions(Options):
         return connectivity
 
     @staticmethod
-    def default_hydro2osc(
+    def default_xfrc2osc(
             convention,
             weight_frequency_up,
             weight_frequency_down,
             weight_amplitude_up,
             weight_amplitude_down,
     ):
-        """Default hydrodynamics sensors to oscillators connectivity"""
+        """Default xfrc sensors to oscillators connectivity"""
         connectivity = []
         iterator = product(range(convention.n_joints_body), range(2))
         if weight_frequency_up:

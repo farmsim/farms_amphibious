@@ -22,7 +22,7 @@ class Amphibious(Animat):
         )
         self.timestep: float = timestep
         self.n_iterations: int = iterations
-        self.hydrodynamics_plot: bool = None
+        self.xfrc_plot: bool = None
 
     def spawn(self):
         """Spawn amphibious"""
@@ -51,7 +51,7 @@ class Amphibious(Animat):
                 )
 
         # Debug
-        self.hydrodynamics_plot = [
+        self.xfrc_plot = [
             [
                 False,
                 pybullet.addUserDebugLine(
@@ -64,5 +64,5 @@ class Amphibious(Animat):
                     parentLinkIndex=i
                 )
             ]
-            for i in range(self.data.sensors.hydrodynamics.array.shape[1])
-        ] if self.options.show_hydrodynamics else []
+            for i in range(self.data.sensors.xfrc.array.shape[1])
+        ] if self.options.show_xfrc else []

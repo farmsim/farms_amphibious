@@ -82,7 +82,7 @@ def get_arena(
 
     # Water
     if arena_options.water.height is not None:
-        assert os.path.isfile(arena_options.water.sdf), (
+        assert os.path.isfile(os.path.expandvars(arena_options.water.sdf)), (
             'Must provide a proper sdf file for water:'
             f'\n{arena_options.water.sdf} is not a file'
         )
@@ -137,8 +137,8 @@ class AmphibiousPybulletSimulation(AnimatPybulletSimulation):
             else None
         )
         if isinstance(self.swimming_handler, SwimmingHandler):
-            self.swimming_handler.set_hydrodynamics_scale(
-                animat.options.scale_hydrodynamics
+            self.swimming_handler.set_xfrc_scale(
+                animat.options.scale_xfrc
             )
             self.constant_velocity: bool = (
                 len(animat.options.physics.water_velocity) == 3

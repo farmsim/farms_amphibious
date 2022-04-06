@@ -4,7 +4,7 @@ include 'types.pxd'
 from farms_core.sensors.data_cy cimport (
     JointSensorArrayCy,
     ContactsArrayCy,
-    HydrodynamicsArrayCy,
+    XfrcArrayCy,
 )
 from ..data.data_cy cimport (
     AmphibiousDataCy,
@@ -14,7 +14,7 @@ from ..data.data_cy cimport (
     OscillatorsConnectivityCy,
     JointsConnectivityCy,
     ContactsConnectivityCy,
-    HydroConnectivityCy,
+    XfrcConnectivityCy,
     JointsControlArrayCy,
 )
 
@@ -57,12 +57,12 @@ cpdef void ode_contacts(
 ) nogil
 
 
-cpdef void ode_hydro(
+cpdef void ode_xfrc(
     unsigned int iteration,
     DTYPEv1 state,
     DTYPEv1 dstate,
-    HydrodynamicsArrayCy hydrodynamics,
-    HydroConnectivityCy hydro_connectivity,
+    XfrcArrayCy xfrc,
+    XfrcConnectivityCy xfrc_connectivity,
     unsigned int n_oscillators,
 ) nogil
 

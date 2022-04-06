@@ -47,7 +47,7 @@ cdef class NetworkParametersCy:
     cdef public ConnectivityCy drive_connectivity
     cdef public JointsConnectivityCy joints_connectivity
     cdef public ContactsConnectivityCy contacts_connectivity
-    cdef public HydroConnectivityCy hydro_connectivity
+    cdef public XfrcConnectivityCy xfrc_connectivity
 
 
 cdef class OscillatorNetworkStateCy(DoubleArray2D):
@@ -190,12 +190,12 @@ cdef class ContactsConnectivityCy(ConnectivityCy):
         return self.weights.array[index]
 
 
-cdef class HydroConnectivityCy(ConnectivityCy):
-    """Hydrodynamics connectivity array"""
+cdef class XfrcConnectivityCy(ConnectivityCy):
+    """External forces connectivity array"""
     cdef readonly DoubleArray1D weights
 
     cdef inline DTYPE c_weights(self, unsigned int index) nogil:
-        """Weight for hydrodynamics frequency"""
+        """Weight for external forces frequency"""
         return self.weights.array[index]
 
 

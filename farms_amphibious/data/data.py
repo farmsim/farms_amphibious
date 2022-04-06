@@ -22,7 +22,7 @@ from .network import (
     OscillatorConnectivity,
     JointsConnectivity,
     ContactsConnectivity,
-    HydroConnectivity,
+    XfrcConnectivity,
 )
 
 
@@ -83,7 +83,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         ) if animat_options.control.network is not None else None
 
         # Maps
-        oscillators_map, joints_map, contacts_map, hydrodynamics_map = (
+        oscillators_map, joints_map, contacts_map, xfrc_map = (
             [
                 {
                     name: element_i
@@ -93,7 +93,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
                         oscillators,
                         sensors.joints,
                         sensors.contacts,
-                        sensors.hydrodynamics,
+                        sensors.xfrc,
                 )
             ]
             if animat_options.control.network is not None
@@ -139,10 +139,10 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
                         map2=contacts_map,
                     )
                 ),
-                hydro_connectivity=HydroConnectivity.from_connectivity(
-                    connectivity=animat_options.control.network.hydro2osc,
+                xfrc_connectivity=XfrcConnectivity.from_connectivity(
+                    connectivity=animat_options.control.network.xfrc2osc,
                     map1=oscillators_map,
-                    map2=hydrodynamics_map,
+                    map2=xfrc_map,
                 ),
             )
             if animat_options.control.network is not None

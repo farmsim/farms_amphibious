@@ -21,7 +21,7 @@ from .data_cy import (
     OscillatorsConnectivityCy,
     JointsConnectivityCy,
     ContactsConnectivityCy,
-    HydroConnectivityCy,
+    XfrcConnectivityCy,
 )
 
 # pylint: disable=no-member
@@ -377,7 +377,7 @@ class ContactsConnectivity(ContactsConnectivityCy):
         }
 
 
-class HydroConnectivity(HydroConnectivityCy):
+class XfrcConnectivity(XfrcConnectivityCy):
     """Connectivity array"""
 
     @classmethod
@@ -421,7 +421,7 @@ class NetworkParameters(NetworkParametersCy):
             drive_connectivity: ConnectivityCy,
             joints_connectivity: JointsConnectivity,
             contacts_connectivity: ContactsConnectivity,
-            hydro_connectivity: HydroConnectivity,
+            xfrc_connectivity: XfrcConnectivity,
     ):
         super().__init__()
         self.drives = drives
@@ -430,7 +430,7 @@ class NetworkParameters(NetworkParametersCy):
         self.joints_connectivity = joints_connectivity
         self.osc_connectivity = osc_connectivity
         self.contacts_connectivity = contacts_connectivity
-        self.hydro_connectivity = hydro_connectivity
+        self.xfrc_connectivity = xfrc_connectivity
 
     @classmethod
     def from_dict(cls, dictionary: Dict):
@@ -454,8 +454,8 @@ class NetworkParameters(NetworkParametersCy):
             contacts_connectivity=ContactsConnectivity.from_dict(
                 dictionary['contacts_connectivity']
             ),
-            hydro_connectivity=HydroConnectivity.from_dict(
-                dictionary['hydro_connectivity']
+            xfrc_connectivity=XfrcConnectivity.from_dict(
+                dictionary['xfrc_connectivity']
             ),
         ) if dictionary else None
 
@@ -469,5 +469,5 @@ class NetworkParameters(NetworkParametersCy):
             'drive_connectivity': self.drive_connectivity.connections.array,
             'joints_connectivity': self.joints_connectivity.to_dict(),
             'contacts_connectivity': self.contacts_connectivity.to_dict(),
-            'hydro_connectivity': self.hydro_connectivity.to_dict(),
+            'xfrc_connectivity': self.xfrc_connectivity.to_dict(),
         }

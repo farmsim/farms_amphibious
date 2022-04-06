@@ -213,8 +213,8 @@ class NetworkFigure:
         self.oscillators_texts = None
         self.contact_sensors = None
         self.contact_sensor_texts = None
-        self.hydro_sensors = None
-        self.hydro_sensor_texts = None
+        self.xfrc_sensors = None
+        self.xfrc_sensor_texts = None
 
         # Animation
         self.animation = None
@@ -227,8 +227,8 @@ class NetworkFigure:
         self.cmap_phases = plt.get_cmap('Greens')
         self.cmap_contacts = plt.get_cmap('Oranges')
         self.cmap_contact_max = 2e-1
-        self.cmap_hydro = plt.get_cmap('Blues')
-        self.cmap_hydro_max = 2e-2
+        self.cmap_xfrc = plt.get_cmap('Blues')
+        self.cmap_xfrc_max = 2e-2
 
     def animate(self, convention, **kwargs):
         """Setup animation"""
@@ -276,15 +276,15 @@ class NetworkFigure:
         cbar.ax.set_ylabel('Contacts forces [N]', rotation=270)
         cbar.ax.get_yaxis().labelpad = -45
 
-        # Hydroynamics
+        # Xfrcynamics
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
             axes=self.axes,
-            cmap=self.cmap_hydro,
-            vmin=0, vmax=self.cmap_hydro_max,
+            cmap=self.cmap_xfrc,
+            vmin=0, vmax=self.cmap_xfrc_max,
             cax=cax,
         )
-        cbar.ax.set_ylabel('Hydrodynamics forces [N]', rotation=270)
+        cbar.ax.set_ylabel('Xfrc forces [N]', rotation=270)
         cbar.ax.get_yaxis().labelpad = -50
 
         # Animation
@@ -305,8 +305,8 @@ class NetworkFigure:
             + self.oscillators_texts
             + self.contact_sensors
             + self.contact_sensor_texts
-            + self.hydro_sensors
-            + self.hydro_sensor_texts
+            + self.xfrc_sensors
+            + self.xfrc_sensor_texts
         )
 
     def animation_init(self):
@@ -342,15 +342,15 @@ class NetworkFigure:
             )
             contact.set_facecolor(self.cmap_contacts(value/self.cmap_contact_max))
 
-        # Hydros sensors
-        for sensor_i, hydr in enumerate(self.hydro_sensors):
+        # Xfrcs sensors
+        for sensor_i, hydr in enumerate(self.xfrc_sensors):
             value = np.clip(
                 np.linalg.norm(
-                    self.data.sensors.hydrodynamics.force(iteration, sensor_i)
+                    self.data.sensors.xfrc.force(iteration, sensor_i)
                 ),
-                0, self.cmap_hydro_max,
+                0, self.cmap_xfrc_max,
             )
-            hydr.set_facecolor(self.cmap_hydro(value/self.cmap_hydro_max))
+            hydr.set_facecolor(self.cmap_xfrc(value/self.cmap_xfrc_max))
 
         return self.animation_elements()
 
@@ -536,29 +536,29 @@ class NetworkFigure:
             **options,
         )
 
-        # Hydrodynamics
-        hydrodynamics_positions = np.array([
+        # Xfrc
+        xfrc_positions = np.array([
             [-(2*osc_x+1), 0]
             for osc_x in range(-1, convention.n_joints_body)
         ])
-        hydro_conn_cond = kwargs.pop(
-            'hydro_conn_cond',
+        xfrc_conn_cond = kwargs.pop(
+            'xfrc_conn_cond',
             lambda osc0, osc1: True
         )
         connections = np.array([
             [connection[0], connection[1], connection[2], weight]
             for connection, weight in zip(
-                self.data.network.hydro_connectivity.connections.array,
-                self.data.network.hydro_connectivity.weights.array,
+                self.data.network.xfrc_connectivity.connections.array,
+                self.data.network.xfrc_connectivity.weights.array,
             )
-            if hydro_conn_cond(connection[0], connection[1])
-        ]) if self.data.network.hydro_connectivity.connections.array else np.empty(0)
+            if xfrc_conn_cond(connection[0], connection[1])
+        ]) if self.data.network.xfrc_connectivity.connections.array else np.empty(0)
         options = {}
-        hydro_frequency_weights = kwargs.pop('hydro_frequency_weights', False)
-        hydro_amplitude_weights = kwargs.pop('hydro_amplitude_weights', False)
+        xfrc_frequency_weights = kwargs.pop('xfrc_frequency_weights', False)
+        xfrc_amplitude_weights = kwargs.pop('xfrc_amplitude_weights', False)
         use_weights = (
             use_colorbar
-            and (hydro_frequency_weights or hydro_amplitude_weights)
+            and (xfrc_frequency_weights or xfrc_amplitude_weights)
         )
         if use_weights:
             if connections.any():
@@ -566,10 +566,10 @@ class NetworkFigure:
                     connection[3]
                     for connection in connections
                     if (
-                        hydro_frequency_weights
+                        xfrc_frequency_weights
                         and connection[2] == ConnectionType.LATERAL2FREQ
                     ) or (
-                        hydro_amplitude_weights
+                        xfrc_amplitude_weights
                         and connection[2] == ConnectionType.LATERAL2AMP
                     )
                 ]
@@ -578,20 +578,20 @@ class NetworkFigure:
             else:
                 options['weights'] = []
                 vmin, vmax = 0, 1
-        self.hydro_sensors, self.hydro_sensor_texts, hydro_connectivity = draw_network(
-            source=hydrodynamics_positions,
+        self.xfrc_sensors, self.xfrc_sensor_texts, xfrc_connectivity = draw_network(
+            source=xfrc_positions,
             destination=oscillator_positions,
             radius=radius,
             connectivity=[
                 connection
-                for connection in self.data.network.hydro_connectivity.connections.array
-                # if hydro_conn_cond(connection[0], connection[1])
-                if (not hydro_frequency_weights and not hydro_amplitude_weights)
+                for connection in self.data.network.xfrc_connectivity.connections.array
+                # if xfrc_conn_cond(connection[0], connection[1])
+                if (not xfrc_frequency_weights and not xfrc_amplitude_weights)
                 or (
-                    hydro_frequency_weights
+                    xfrc_frequency_weights
                     and connection[2] == ConnectionType.LATERAL2FREQ
                 ) or (
-                    hydro_amplitude_weights
+                    xfrc_amplitude_weights
                     and connection[2] == ConnectionType.LATERAL2AMP
                 )
             ],
@@ -602,25 +602,25 @@ class NetworkFigure:
             alpha=2*alpha,
             show_text=show_text,
             **options,
-        ) if self.data.network.hydro_connectivity.connections.array else [[]]*3
+        ) if self.data.network.xfrc_connectivity.connections.array else [[]]*3
 
         # Show elements
         [
             show_oscillators,
             show_contacts,
-            show_hydrodynamics,
+            show_xfrc,
             show_oscillators_connectivity,
             show_contacts_connectivity,
-            show_hydrodynamics_connectivity,
+            show_xfrc_connectivity,
         ] = [
             kwargs.pop(key, True)
             for key in [
                 'show_oscillators',
                 'show_contacts',
-                'show_hydrodynamics',
+                'show_xfrc',
                 'show_oscillators_connectivity',
                 'show_contacts_connectivity',
-                'show_hydrodynamics_connectivity',
+                'show_xfrc_connectivity',
             ]
         ]
         if show_oscillators_connectivity:
@@ -629,8 +629,8 @@ class NetworkFigure:
         if show_contacts_connectivity:
             for arrow in contact_connectivity:
                 self.axes.add_artist(arrow)
-        if show_hydrodynamics_connectivity:
-            for arrow in hydro_connectivity:
+        if show_xfrc_connectivity:
+            for arrow in xfrc_connectivity:
                 self.axes.add_artist(arrow)
         if show_oscillators:
             for circle, text in zip(
@@ -648,10 +648,10 @@ class NetworkFigure:
                 self.axes.add_artist(circle)
                 if show_text:
                     self.axes.add_artist(text)
-        if show_hydrodynamics:
+        if show_xfrc:
             for circle, text in zip(
-                    self.hydro_sensors,
-                    self.hydro_sensor_texts,
+                    self.xfrc_sensors,
+                    self.xfrc_sensor_texts,
             ):
                 self.axes.add_artist(circle)
                 if show_text:
@@ -748,7 +748,7 @@ def plot_networks_maps(
             title='Oscillators complete connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             use_colorbar=True,
             oscillator_weights=True,
         )
@@ -756,7 +756,7 @@ def plot_networks_maps(
             title='Oscillators body2body connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=body2body,
             use_colorbar=True,
             oscillator_weights=True,
@@ -765,7 +765,7 @@ def plot_networks_maps(
             title='Oscillators body2limb connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=body2leg,
             use_colorbar=True,
             oscillator_weights=True,
@@ -774,7 +774,7 @@ def plot_networks_maps(
             title='Oscillators limb2body connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2body,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -784,7 +784,7 @@ def plot_networks_maps(
             title='Oscillators limb2limb connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2leg,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -794,7 +794,7 @@ def plot_networks_maps(
             title='Oscillators intralimb connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2sameleg,
             rads=[0.2, 0.0, 0.0],
             use_colorbar=True,
@@ -804,7 +804,7 @@ def plot_networks_maps(
             title='Oscillators interlimb connectivity',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2diffleg,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -816,7 +816,7 @@ def plot_networks_maps(
             title='Oscillators complete phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             use_colorbar=True,
             oscillator_phases=True,
         )
@@ -824,7 +824,7 @@ def plot_networks_maps(
             title='Oscillators body2body phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=body2body,
             use_colorbar=True,
             oscillator_phases=True,
@@ -833,7 +833,7 @@ def plot_networks_maps(
             title='Oscillators body2limb phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=body2leg,
             use_colorbar=True,
             oscillator_phases=True,
@@ -842,7 +842,7 @@ def plot_networks_maps(
             title='Oscillators limb2body phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2body,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -852,7 +852,7 @@ def plot_networks_maps(
             title='Oscillators limb2limb phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2leg,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -862,7 +862,7 @@ def plot_networks_maps(
             title='Oscillators intralimb phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2sameleg,
             rads=[0.2, 0.0, 0.0],
             use_colorbar=True,
@@ -872,7 +872,7 @@ def plot_networks_maps(
             title='Oscillators interlimb phases',
             animat_options=animat_options,
             show_contacts_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             osc_conn_cond=leg2diffleg,
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
@@ -884,7 +884,7 @@ def plot_networks_maps(
             title='Contacts complete connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             use_colorbar=True,
             contacts_weights=True,
         )
@@ -892,7 +892,7 @@ def plot_networks_maps(
             title='Contacts intralimb connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             contact_conn_cond=contact2sameleg,
             use_colorbar=True,
             contacts_weights=True,
@@ -901,34 +901,34 @@ def plot_networks_maps(
             title='Contacts interlimb connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
-            show_hydrodynamics_connectivity=False,
+            show_xfrc_connectivity=False,
             contact_conn_cond=contact2diffleg,
             use_colorbar=True,
             contacts_weights=True,
         )
 
-        # Plot hydrodynamics connectivity
-        plots['network_hydro'] = network.plot(
-            title='Hydrodynamics complete connectivity',
+        # Plot xfrc connectivity
+        plots['network_xfrc'] = network.plot(
+            title='Xfrc complete connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
             show_contacts_connectivity=False,
         )
-        plots['network_hydro_frequency'] = network.plot(
-            title='Hydrodynamics frequency connectivity',
+        plots['network_xfrc_frequency'] = network.plot(
+            title='Xfrc frequency connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
             show_contacts_connectivity=False,
             use_colorbar=True,
-            hydro_frequency_weights=True,
+            xfrc_frequency_weights=True,
         )
-        plots['network_hydro_amplitude'] = network.plot(
-            title='Hydrodynamics amplitude connectivity',
+        plots['network_xfrc_amplitude'] = network.plot(
+            title='Xfrc amplitude connectivity',
             animat_options=animat_options,
             show_oscillators_connectivity=False,
             show_contacts_connectivity=False,
             use_colorbar=True,
-            hydro_amplitude_weights=True,
+            xfrc_amplitude_weights=True,
         )
 
     return network_anim, plots

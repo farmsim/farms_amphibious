@@ -24,14 +24,14 @@ class SwimmingCallback(TaskCallback):
         )
 
     def before_step(self, task, action, physics):
-        """Step hydrodynamics"""
+        """Step xfrc"""
         self._handler.step(task.iteration)
         # physics.data.xfrc_applied[:, :] = 0  # Reset all forces
         indices = task.maps['sensors']['data2xfrc2']
         physics.data.xfrc_applied[indices, :] = (
-            task.data.sensors.hydrodynamics.array[
+            task.data.sensors.xfrc.array[
                 task.iteration, :,
-                sc.hydrodynamics_force_x:sc.hydrodynamics_torque_z+1,
+                sc.xfrc_force_x:sc.xfrc_torque_z+1,
             ]
         )
         for force_i, (rotation_mat, force_local) in enumerate(zip(

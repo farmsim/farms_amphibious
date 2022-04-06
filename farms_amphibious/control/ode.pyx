@@ -178,39 +178,39 @@ cpdef inline void ode_contacts(
             )
 
 
-cpdef inline void ode_hydro(
+cpdef inline void ode_xfrc(
     unsigned int iteration,
     DTYPEv1 state,
     DTYPEv1 dstate,
-    HydrodynamicsArrayCy hydrodynamics,
-    HydroConnectivityCy hydro_connectivity,
+    XfrcArrayCy xfrc,
+    XfrcConnectivityCy xfrc_connectivity,
     unsigned int n_oscillators,
 ) nogil:
-    """Sensory feedback - Hydrodynamics
+    """Sensory feedback - Xfrc
 
     Can affect d_phase and d_amplitude
 
     """
-    cdef DTYPE hydro_force
+    cdef DTYPE xfrc_force
     cdef unsigned int i, i0, i1, connection_type
-    for i in range(hydro_connectivity.n_connections):
-        i0 = hydro_connectivity.connections.array[i, 0]
-        i1 = hydro_connectivity.connections.array[i, 1]
-        connection_type = hydro_connectivity.connections.array[i, 2]
-        hydro_force = fabs(hydrodynamics.c_force_y(iteration, i1))
+    for i in range(xfrc_connectivity.n_connections):
+        i0 = xfrc_connectivity.connections.array[i, 0]
+        i1 = xfrc_connectivity.connections.array[i, 1]
+        connection_type = xfrc_connectivity.connections.array[i, 2]
+        xfrc_force = fabs(xfrc.c_force_y(iteration, i1))
         if connection_type == ConnectionType.LATERAL2FREQ:
-            # dfrequency += hydro_weight*hydro_force
+            # dfrequency += xfrc_weight*xfrc_force
             dstate[i0] += (
-                hydro_connectivity.c_weights(i)*hydro_force
+                xfrc_connectivity.c_weights(i)*xfrc_force
             )
         elif connection_type == ConnectionType.LATERAL2AMP:
-            # damplitude += hydro_weight*hydro_force
+            # damplitude += xfrc_weight*xfrc_force
             dstate[n_oscillators+i0] += (
-                hydro_connectivity.c_weights(i)*hydro_force
+                xfrc_connectivity.c_weights(i)*xfrc_force
             )
         else:
             printf(
-                'Hydrodynamics connection %i of type %i is incorrect'
+                'Xfrc connection %i of type %i is incorrect'
                 ', should be %i or %i instead\n',
                 i,
                 connection_type,
@@ -293,12 +293,12 @@ cpdef inline DTYPEv1 ode_oscillators_sparse(
         contacts=data.sensors.contacts,
         contacts_connectivity=data.network.contacts_connectivity,
     )
-    ode_hydro(
+    ode_xfrc(
         iteration=iteration,
         state=state,
         dstate=dstate,
-        hydrodynamics=data.sensors.hydrodynamics,
-        hydro_connectivity=data.network.hydro_connectivity,
+        xfrc=data.sensors.xfrc,
+        xfrc_connectivity=data.network.xfrc_connectivity,
         n_oscillators=data.network.oscillators.n_oscillators,
     )
     return dstate
