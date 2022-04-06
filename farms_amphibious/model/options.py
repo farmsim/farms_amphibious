@@ -802,22 +802,6 @@ class AmphibiousMotorOffsetOptions(Options):
 class AmphibiousSensorsOptions(SensorsOptions):
     """Amphibious sensors options"""
 
-    def __init__(self, **kwargs):
-        super().__init__(
-            links=kwargs.pop('links'),
-            joints=kwargs.pop('joints'),
-            contacts=kwargs.pop('contacts'),
-        )
-        self.xfrc: List[str] = kwargs.pop('xfrc')
-        assert not kwargs, f'Unknown kwargs: {kwargs}'
-
-    @classmethod
-    def options_from_kwargs(cls, kwargs):
-        """Options from kwargs"""
-        options = super(cls, cls).options_from_kwargs(kwargs)
-        options['xfrc'] = kwargs.pop('sens_xfrc', None)
-        return options
-
     def defaults_from_convention(self, convention, kwargs):
         """Defaults from convention"""
         self.links = kwargs.pop(
