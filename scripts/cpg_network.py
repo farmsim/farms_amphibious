@@ -4,7 +4,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from numpy.random import MT19937, RandomState, SeedSequence
 
-import farms_pylog as pylog
+from farms_core import pylog
 from farms_core.utils.profile import profile
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.convention import AmphibiousConvention

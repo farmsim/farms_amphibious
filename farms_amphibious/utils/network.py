@@ -8,7 +8,7 @@ from matplotlib.animation import FuncAnimation
 from matplotlib.colors import colorConverter, Normalize, ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
-import farms_pylog as pylog
+from farms_core import pylog
 
 from ..data.data import AmphibiousData
 from ..data.data_cy import ConnectionType

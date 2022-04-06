@@ -6,7 +6,7 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 
-import farms_pylog as pylog
+from farms_core import pylog
 from farms_models.utils import get_model_path, get_sdf_path
 from farms_core.utils.profile import profile
 from farms_core.simulation.options import SimulationOptions

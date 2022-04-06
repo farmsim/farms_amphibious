@@ -3,7 +3,7 @@
 import os
 from distutils.util import strtobool
 import matplotlib.pyplot as plt
-import farms_pylog as pylog
+from farms_core import pylog
 from farms_core.simulation.options import Simulator
 from farms_amphibious.utils.network import plot_networks_maps
 from ..data.data import AmphibiousData

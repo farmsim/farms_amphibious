@@ -7,7 +7,7 @@ import numpy as np
 from cycler import cycler
 import matplotlib.pyplot as plt
 
-import farms_pylog as pylog
+from farms_core import pylog
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions

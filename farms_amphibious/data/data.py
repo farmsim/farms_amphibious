@@ -4,7 +4,7 @@ from typing import Any, Dict
 import numpy as np
 from nptyping import NDArray
 
-import farms_pylog as pylog
+from farms_core import pylog
 
 from farms_core.io.hdf5 import hdf5_to_dict
 from farms_core.array.array import to_array

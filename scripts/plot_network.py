@@ -11,7 +11,7 @@ from matplotlib import animation
 from PIL import Image
 from moviepy.editor import VideoClip
 
-import farms_pylog as pylog
+from farms_core import pylog
 from farms_core.utils.profile import profile
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
