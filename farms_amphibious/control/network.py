@@ -2,9 +2,9 @@
 
 from typing import Callable
 import numpy as np
-from farms_core.amphibious.data import AmphibiousData
 from scipy import integrate
 from scipy.integrate._ode import ode as ODE
+from ..data.data import AmphibiousData
 from .ode import ode_oscillators_sparse
 
 

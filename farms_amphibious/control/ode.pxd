@@ -6,7 +6,7 @@ from farms_core.sensors.data_cy cimport (
     ContactsArrayCy,
     HydrodynamicsArrayCy,
 )
-from farms_core.amphibious.data_cy cimport (
+from ..data.data_cy cimport (
     AmphibiousDataCy,
     NetworkParametersCy,
     DriveArrayCy,

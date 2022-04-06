@@ -69,7 +69,7 @@ setup(
                 extra_compile_args=['-O3'],  # , '-fopenmp'
                 extra_link_args=['-O3']  # , '-fopenmp'
             )
-            for folder in ['control']
+            for folder in ['data', 'control']
         ],
         include_path=[np.get_include()] + get_include_paths(),
         compiler_directives={

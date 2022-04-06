@@ -7,7 +7,6 @@ from typing import Union
 import farms_pylog as pylog
 from farms_core.utils.profile import profile
 from farms_core.simulation.options import Simulator
-from farms_core.amphibious.data import AmphibiousData
 from farms_mujoco.simulation.simulation import Simulation as MuJoCoSimulation
 from farms_sim.simulation import (
     setup_from_clargs,
@@ -15,6 +14,7 @@ from farms_sim.simulation import (
     postprocessing_from_clargs,
 )
 
+from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.control.amphibious import AmphibiousController
 from farms_amphibious.control.drive import drive_from_config

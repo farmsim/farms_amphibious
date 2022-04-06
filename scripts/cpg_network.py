@@ -6,7 +6,7 @@ from numpy.random import MT19937, RandomState, SeedSequence
 
 import farms_pylog as pylog
 from farms_core.utils.profile import profile
-from farms_core.amphibious.data import AmphibiousData
+from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.convention import AmphibiousConvention
 from farms_amphibious.control.network import NetworkODE
 from farms_amphibious.utils.network import plot_networks_maps

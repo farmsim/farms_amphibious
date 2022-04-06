@@ -9,9 +9,9 @@ from matplotlib.colors import colorConverter, Normalize, ListedColormap
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 import farms_pylog as pylog
-from farms_core.amphibious.data import AmphibiousData
-from farms_core.amphibious.data_cy import ConnectionType
 
+from ..data.data import AmphibiousData
+from ..data.data_cy import ConnectionType
 from ..model.convention import AmphibiousConvention
 from ..model.options import AmphibiousOptions  # AmphibiousMorphologyOptions
 from ..control.network import NetworkODE

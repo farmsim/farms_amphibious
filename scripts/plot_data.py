@@ -8,8 +8,8 @@ from cycler import cycler
 import matplotlib.pyplot as plt
 
 import farms_pylog as pylog
-from farms_core.amphibious.data import AmphibiousData
 from farms_core.simulation.options import SimulationOptions
+from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
 from farms_amphibious.control.drive import drive_from_config, plot_trajectory

@@ -2,9 +2,9 @@
 
 from typing import Dict, List, Tuple, Callable, Union
 import numpy as np
-from farms_core.amphibious.data import AmphibiousData
 from farms_core.model.control import AnimatController, ControlType
 from ..model.options import AmphibiousOptions
+from ..data.data import AmphibiousData
 from .drive import DescendingDrive
 from .network import NetworkODE
 from .position_muscle_cy import PositionMuscleCy
