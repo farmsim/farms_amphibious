@@ -59,6 +59,11 @@ setup(
     #     'farms_amphibious/templates/*',
     #     'farms_amphibious/config/*'
     # ]},
+    package_dir={'farms_amphibious': 'farms_amphibious'},
+    package_data={'farms_amphibious': [
+        f'{folder}/*.pxd'
+        for folder in ['data', 'control']
+    ]},
     include_package_data=True,
     include_dirs=[np.get_include()],
     ext_modules=cythonize(
