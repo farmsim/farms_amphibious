@@ -8,6 +8,7 @@ from farms_core import pylog
 from farms_core.utils.profile import profile
 from farms_core.simulation.options import Simulator
 from farms_mujoco.simulation.simulation import Simulation as MuJoCoSimulation
+from farms_sim.utils.parse_args import sim_parse_args
 from farms_sim.simulation import (
     setup_from_clargs,
     simulation,
@@ -19,7 +20,6 @@ from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.control.amphibious import AmphibiousController
 from farms_amphibious.control.drive import drive_from_config
 from farms_amphibious.callbacks import SwimmingCallback
-from farms_amphibious.utils.parse_args import sim_parse_args
 
 ENGINE_BULLET = False
 try:

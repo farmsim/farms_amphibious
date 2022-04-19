@@ -3,55 +3,9 @@
 import argparse
 import numpy as np
 from farms_core.simulation.parse_args import (
-    sim_argument_parser as farms_core_sim_argument_parser,
     config_argument_parser as farms_core_config_argument_parser,
 )
 from ..model.options import options_kwargs_keys
-
-
-def sim_argument_parser() -> argparse.ArgumentParser:
-    """Argument parser"""
-    parser = farms_core_sim_argument_parser()
-    parser.description = 'FARMS amphibious simulation'
-
-    # Logging and profiling
-    parser.add_argument(
-        '--log_path',
-        type=str,
-        default='',
-        help='Log simulation data to provided folder path',
-    )
-    parser.add_argument(
-        '--profile',
-        type=str,
-        default='',
-        help='Save simulation profile to given filename',
-    )
-    parser.add_argument(
-        '--test_configs',
-        action='store_true',
-        help='Test simulation configuration files',
-    )
-    parser.add_argument(
-        '--prompt',
-        action='store_true',
-        help='Prompt at end of simulation',
-    )
-    parser.add_argument(
-        '--verify_save',
-        action='store_true',
-        help='Verify if saved simulation data can be loaded',
-    )
-
-    return parser
-
-
-def sim_parse_args():
-    """Parse arguments"""
-    parser = sim_argument_parser()
-    # return parser.parse_args()
-    args, _ = parser.parse_known_args()
-    return args
 
 
 def config_argument_parser() -> argparse.ArgumentParser:
