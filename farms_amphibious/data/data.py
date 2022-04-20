@@ -1,13 +1,13 @@
 """Amphibious data"""
 
-from typing import Any, Dict
+from typing import Dict
 import numpy as np
-from nptyping import NDArray
 
 from farms_core import pylog
 
 from farms_core.io.hdf5 import hdf5_to_dict
 from farms_core.array.array import to_array
+from farms_core.array.types import NDARRAY_V1
 from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions, ControlOptions
 from farms_core.simulation.options import SimulationOptions
@@ -188,7 +188,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         })
         return data_dict
 
-    def plot(self, times: NDArray[(Any,), float]) -> Dict:
+    def plot(self, times: NDARRAY_V1) -> Dict:
         """Plot"""
         plots = {}
         plots.update(self.state.plot(times))

@@ -1,14 +1,18 @@
 """Network"""
 
-from typing import List, Tuple, Dict, Any
+from typing import List, Tuple, Dict
 
 import numpy as np
-from nptyping import NDArray
 import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from farms_core.array.array import to_array
 from farms_core.array.array_cy import DoubleArray1D
+from farms_core.array.types import (
+    NDARRAY_V1,
+    NDARRAY_V1_D,
+    NDARRAY_V2_D,
+)
 
 from .data_cy import (
     ConnectionType,
@@ -87,7 +91,7 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
     @classmethod
     def from_initial_state(
             cls,
-            initial_state: NDArray[(Any,), float],
+            initial_state: NDARRAY_V1,
             n_iterations: int,
             n_oscillators: int,
     ):
@@ -101,7 +105,7 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
         state_array[0, :] = initial_state
         return cls(array=state_array, n_oscillators=n_oscillators)
 
-    def plot(self, times: NDArray[(Any,), float]) -> Dict:
+    def plot(self, times: NDARRAY_V1) -> Dict:
         """Plot"""
         return {
             'phases': self.plot_phases(times),
@@ -113,7 +117,7 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
 
     def plot_phases(
             self,
-            times: NDArray[(Any,), float],
+            times: NDARRAY_V1,
     ) -> Figure:
         """Plot phases"""
         fig = plt.figure('Network state phases')
@@ -126,7 +130,7 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
 
     def plot_amplitudes(
             self,
-            times: NDArray[(Any,), float],
+            times: NDARRAY_V1,
     ) -> Figure:
         """Plot amplitudes"""
         fig = plt.figure('Network state amplitudes')
@@ -139,7 +143,7 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
 
     def plot_neural_activity_normalised(
             self,
-            times: NDArray[(Any,), float],
+            times: NDARRAY_V1,
     ) -> Figure:
         """Plot amplitudes"""
         fig = plt.figure('Neural activities (normalised)')
@@ -172,7 +176,7 @@ class DriveArray(DriveArrayCy):
 
     def plot(
             self,
-            times: NDArray[(Any,), float],
+            times: NDARRAY_V1,
     ) -> Figure:
         """Plot phases"""
         fig = plt.figure('Drives')
@@ -207,11 +211,11 @@ class Oscillators(OscillatorsCy):
     def __init__(
             self,
             names: List[str],
-            intrinsic_frequencies: NDArray[(Any, Any), np.double],
-            nominal_amplitudes: NDArray[(Any, Any), np.double],
-            rates: NDArray[(Any,), np.double],
-            modular_phases: NDArray[(Any,), np.double],
-            modular_amplitudes: NDArray[(Any,), np.double],
+            intrinsic_frequencies: NDARRAY_V2_D,
+            nominal_amplitudes: NDARRAY_V2_D,
+            rates: NDARRAY_V1_D,
+            modular_phases: NDARRAY_V1_D,
+            modular_amplitudes: NDARRAY_V1_D,
     ):
         super().__init__(n_oscillators=len(names))
         self.names = names
