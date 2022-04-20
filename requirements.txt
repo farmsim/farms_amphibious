@@ -1,5 +1,6 @@
 farms_core
 farms_mujoco
+farms_sim
 cython
 numpy
 scipy

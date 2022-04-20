@@ -27,7 +27,6 @@ try:
     from farms_amphibious.bullet.simulation import AmphibiousPybulletSimulation
     ENGINE_BULLET = True
 except ImportError as err:
-    pylog.error(err)
     Amphibious = None
     AmphibiousPybulletSimulation = None
 

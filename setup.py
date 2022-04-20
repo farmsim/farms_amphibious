@@ -111,8 +111,15 @@ setup(
     install_requires=[
         'farms_core',
         'farms_mujoco',
+        'farms_sim',
         'cython',
         'numpy',
+        'scipy',
+        'matplotlib',
+        'tqdm',
+        'pyyaml',
         'trimesh',
+        'imageio',
+        'simple_pid',
     ],
 )
