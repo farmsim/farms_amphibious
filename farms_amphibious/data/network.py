@@ -7,9 +7,14 @@ import matplotlib.pyplot as plt
 from matplotlib.figure import Figure
 
 from farms_core.array.array import to_array
-from farms_core.array.array_cy import DoubleArray1D
+from farms_core.array.array_cy import (
+    IntegerArray1D,
+    DoubleArray1D,
+    DoubleArray2D,
+)
 from farms_core.array.types import (
     NDARRAY_V1,
+    NDARRAY_V1_I,
     NDARRAY_V1_D,
     NDARRAY_V2_D,
 )
@@ -211,19 +216,23 @@ class Oscillators(OscillatorsCy):
     def __init__(
             self,
             names: List[str],
+            drive2osc_map: NDARRAY_V1_I,
             intrinsic_frequencies: NDARRAY_V2_D,
             nominal_amplitudes: NDARRAY_V2_D,
             rates: NDARRAY_V1_D,
             modular_phases: NDARRAY_V1_D,
             modular_amplitudes: NDARRAY_V1_D,
     ):
-        super().__init__(n_oscillators=len(names))
+        super().__init__(
+            n_oscillators=len(names),
+            drive2osc_map=IntegerArray1D(drive2osc_map),
+            intrinsic_frequencies=DriveDependentArray(intrinsic_frequencies),
+            nominal_amplitudes=DriveDependentArray(nominal_amplitudes),
+            rates=DoubleArray1D(rates),
+            modular_phases=DoubleArray1D(modular_phases),
+            modular_amplitudes=DoubleArray1D(modular_amplitudes),
+        )
         self.names = names
-        self.intrinsic_frequencies = DriveDependentArray(intrinsic_frequencies)
-        self.nominal_amplitudes = DriveDependentArray(nominal_amplitudes)
-        self.rates = DoubleArray1D(rates)
-        self.modular_phases = DoubleArray1D(modular_phases)
-        self.modular_amplitudes = DoubleArray1D(modular_amplitudes)
 
     @classmethod
     def from_options(cls, network):
@@ -243,6 +252,7 @@ class Oscillators(OscillatorsCy):
         ]
         return cls(
             network.osc_names(),
+            np.array(network.drive2osc, dtype=NPUITYPE),
             freqs,
             amplitudes,
             np.array(network.osc_rates(), dtype=NPDTYPE),
@@ -255,6 +265,7 @@ class Oscillators(OscillatorsCy):
         """Load data from dictionary"""
         return cls(
             names=dictionary['names'],
+            drive2osc_map=dictionary['drive2osc_map'],
             intrinsic_frequencies=dictionary['intrinsic_frequencies'],
             nominal_amplitudes=dictionary['nominal_amplitudes'],
             rates=dictionary['rates'],
@@ -267,6 +278,7 @@ class Oscillators(OscillatorsCy):
         assert iteration is None or isinstance(iteration, int)
         return {
             'names': self.names,
+            'drive2osc_map': to_array(self.drive2osc_map.array),
             'intrinsic_frequencies': to_array(self.intrinsic_frequencies.array),
             'nominal_amplitudes': to_array(self.nominal_amplitudes.array),
             'rates': to_array(self.rates.array),
@@ -417,25 +429,6 @@ class XfrcConnectivity(XfrcConnectivityCy):
 class NetworkParameters(NetworkParametersCy):
     """Network parameter"""
 
-    def __init__(
-            self,
-            drives: DriveArray,
-            oscillators: Oscillators,
-            osc_connectivity: OscillatorConnectivity,
-            drive_connectivity: ConnectivityCy,
-            joints_connectivity: JointsConnectivity,
-            contacts_connectivity: ContactsConnectivity,
-            xfrc_connectivity: XfrcConnectivity,
-    ):
-        super().__init__()
-        self.drives = drives
-        self.oscillators = oscillators
-        self.drive_connectivity = drive_connectivity
-        self.joints_connectivity = joints_connectivity
-        self.osc_connectivity = osc_connectivity
-        self.contacts_connectivity = contacts_connectivity
-        self.xfrc_connectivity = xfrc_connectivity
-
     @classmethod
     def from_dict(cls, dictionary: Dict):
         """Load data from dictionary"""
@@ -446,20 +439,17 @@ class NetworkParameters(NetworkParametersCy):
             oscillators=Oscillators.from_dict(
                 dictionary['oscillators']
             ),
-            osc_connectivity=OscillatorConnectivity.from_dict(
-                dictionary['osc_connectivity']
+            osc2osc_map=OscillatorConnectivity.from_dict(
+                dictionary['osc2osc_map']
             ),
-            drive_connectivity=ConnectivityCy(
-                dictionary['drive_connectivity']
+            joints2osc_map=JointsConnectivity.from_dict(
+                dictionary['joints2osc_map']
             ),
-            joints_connectivity=JointsConnectivity.from_dict(
-                dictionary['joints_connectivity']
+            contacts2osc_map=ContactsConnectivity.from_dict(
+                dictionary['contacts2osc_map']
             ),
-            contacts_connectivity=ContactsConnectivity.from_dict(
-                dictionary['contacts_connectivity']
-            ),
-            xfrc_connectivity=XfrcConnectivity.from_dict(
-                dictionary['xfrc_connectivity']
+            xfrc2osc_map=XfrcConnectivity.from_dict(
+                dictionary['xfrc2osc_map']
             ),
         ) if dictionary else None
 
@@ -469,9 +459,8 @@ class NetworkParameters(NetworkParametersCy):
         return {
             'drives': to_array(self.drives.array),
             'oscillators': self.oscillators.to_dict(),
-            'osc_connectivity': self.osc_connectivity.to_dict(),
-            'drive_connectivity': self.drive_connectivity.connections.array,
-            'joints_connectivity': self.joints_connectivity.to_dict(),
-            'contacts_connectivity': self.contacts_connectivity.to_dict(),
-            'xfrc_connectivity': self.xfrc_connectivity.to_dict(),
+            'osc2osc_map': self.osc2osc_map.to_dict(),
+            'joints2osc_map': self.joints2osc_map.to_dict(),
+            'contacts2osc_map': self.contacts2osc_map.to_dict(),
+            'xfrc2osc_map': self.xfrc2osc_map.to_dict(),
         }

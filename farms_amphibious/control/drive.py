@@ -115,11 +115,11 @@ class DescendingDrive(ABC):
         """Step"""
         raise NotImplementedError
 
-    def set_forward_drive(self, iteration, value):
+    def set_left_drive(self, iteration, value):
         """Set forward drive"""
         self._drives.array[min(iteration, self.n_iterations-1), 0] = value
 
-    def set_turn_drive(self, iteration, value):
+    def set_right_drive(self, iteration, value):
         """Set turn drive"""
         self._drives.array[min(iteration, self.n_iterations-1), 1] = value
 
@@ -148,16 +148,12 @@ class OrientationFollower(DescendingDrive):
         self.pid.setpoint = self.strategy.heading(pos)
         return self.pid.setpoint
 
-    def update_turn_control(self, iteration, timestep, command, heading):
+    def get_turn_control(self, iteration, timestep, command, heading):
         """Update drive"""
-        error = ((command - heading + np.pi)%(2*np.pi)) - np.pi
-        self.set_turn_drive(
-            iteration=iteration,
-            value=-self.pid(command-error, dt=timestep),
-        )
-        return self._drives.array[iteration, 1]
+        error = ((command - heading + np.pi) % (2*np.pi)) - np.pi
+        return -(self.pid(command-error, dt=timestep))
 
-    def update_foward_control(self, iteration, indices):
+    def get_foward_control(self, iteration, indices):
         """Update drive"""
         # xfrc = np.array(
         #     self.animat_data.sensors.xfrc.forces(),
@@ -169,25 +165,24 @@ class OrientationFollower(DescendingDrive):
             copy=False,
         )[iteration, :, 2]
         condition_contacts = np.sum(contacts) > 9.81*self.contact_threshold
-        self.set_forward_drive(
-            iteration=iteration,
-            # condition_xfrc or
-            value=2 if condition_contacts else 4,
-        )
+        return 2.5 if condition_contacts else 4.5
 
     def update(self, iteration, timestep, pos, heading):
         """Update drive"""
         self.setpoints[iteration] = self.update_turn_command(pos=pos)
-        self.control[iteration] = self.update_turn_control(
+        turn = self.get_turn_control(
             iteration=iteration,
             timestep=timestep,
             command=self.setpoints[iteration],
             heading=heading,
         )
-        self.update_foward_control(
+        fwd = self.get_foward_control(
             iteration=iteration,
             indices=self.indices,
         )
+        self.set_left_drive(iteration=iteration, value=fwd+turn)
+        self.set_right_drive(iteration=iteration, value=fwd-turn)
+        self.control[iteration] = turn
         return self.setpoints[iteration], self.control[iteration]
 
     def step(self, iteration, time, timestep):

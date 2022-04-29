@@ -8,6 +8,7 @@ from farms_core.model.data_cy cimport AnimatDataCy
 from farms_core.array.array_cy cimport (
     DoubleArray1D,
     DoubleArray2D,
+    IntegerArray1D,
     IntegerArray2D,
 )
 
@@ -41,13 +42,16 @@ cdef class AmphibiousDataCy(AnimatDataCy):
 
 cdef class NetworkParametersCy:
     """Network parameters"""
-    cdef public DriveArrayCy drives
+    # Oscillators
     cdef public OscillatorsCy oscillators
-    cdef public OscillatorsConnectivityCy osc_connectivity
-    cdef public ConnectivityCy drive_connectivity
-    cdef public JointsConnectivityCy joints_connectivity
-    cdef public ContactsConnectivityCy contacts_connectivity
-    cdef public XfrcConnectivityCy xfrc_connectivity
+    cdef public OscillatorsConnectivityCy osc2osc_map
+    # Drives
+    cdef public DriveArrayCy drives
+    # cdef public IntegerArray1D drive2osc_map
+    # Sensors
+    cdef public JointsConnectivityCy joints2osc_map
+    cdef public ContactsConnectivityCy contacts2osc_map
+    cdef public XfrcConnectivityCy xfrc2osc_map
 
 
 cdef class OscillatorNetworkStateCy(DoubleArray2D):
@@ -66,20 +70,10 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
 cdef class DriveArrayCy(DoubleArray2D):
     """Drive array"""
 
-    cdef inline DTYPE c_speed(self, unsigned int iteration) nogil:
-        """Value"""
-        return self.array[iteration, 0]
-
-    cdef inline DTYPE c_turn(self, unsigned int iteration) nogil:
-        """Value"""
-        return self.array[iteration, 1]
-
 
 cdef class DriveDependentArrayCy(DoubleArray2D):
     """Drive dependent array"""
     cdef public unsigned int n_nodes
-
-    cdef public DTYPE value(self, unsigned int index, DTYPE drive)
 
     cdef inline DTYPE c_gain(self, unsigned int index) nogil:
         """Gain"""
@@ -112,8 +106,8 @@ cdef class DriveDependentArrayCy(DoubleArray2D):
     cdef inline DTYPE c_value_mod(self, unsigned int index, DTYPE drive1, DTYPE drive2) nogil:
         """Value"""
         return (
-            (self.c_gain(index)*drive1 + self.c_bias(index))
-            if self.c_low(index) <= drive2 <= self.c_high(index)
+            (self.c_gain(index)*drive2 + self.c_bias(index))
+            if self.c_low(index) <= drive1 <= self.c_high(index)
             else self.c_saturation(index)
         )
 
@@ -121,19 +115,38 @@ cdef class DriveDependentArrayCy(DoubleArray2D):
 cdef class OscillatorsCy:
     """Oscillator array"""
     cdef public unsigned int n_oscillators
+    cdef public IntegerArray1D drive2osc_map
     cdef public DriveDependentArrayCy intrinsic_frequencies
     cdef public DriveDependentArrayCy nominal_amplitudes
     cdef public DoubleArray1D rates
     cdef public DoubleArray1D modular_phases
     cdef public DoubleArray1D modular_amplitudes
 
-    cdef inline DTYPE c_angular_frequency(self, unsigned int index, DTYPE drive) nogil:
+    cdef inline DTYPE c_angular_frequency(
+        self,
+        unsigned int iteration,
+        unsigned int index,
+        DriveArrayCy drives,
+    ) nogil:
         """Angular frequency"""
-        return self.intrinsic_frequencies.c_value(index, drive)
+        cdef unsigned int drive_index = self.drive2osc_map.array[index]
+        return self.intrinsic_frequencies.c_value(
+            index,
+            drives.array[iteration, drive_index],
+        )
 
-    cdef inline DTYPE c_nominal_amplitude(self, unsigned int index, DTYPE drive) nogil:
+    cdef inline DTYPE c_nominal_amplitude(
+        self,
+        unsigned int iteration,
+        unsigned int index,
+        DriveArrayCy drives,
+    ) nogil:
         """Nominal amplitude"""
-        return self.nominal_amplitudes.c_value(index, drive)
+        cdef unsigned int drive_index = self.drive2osc_map.array[index]
+        return self.nominal_amplitudes.c_value(
+            index,
+            drives.array[iteration, drive_index],
+        )
 
     cdef inline DTYPE c_rate(self, unsigned int index) nogil:
         """Rate"""
@@ -201,14 +214,26 @@ cdef class XfrcConnectivityCy(ConnectivityCy):
 
 cdef class JointsControlArrayCy(DriveDependentArrayCy):
     """Joints control array"""
+    cdef public IntegerArray2D drive2joint_map
 
     cdef inline unsigned int c_n_joints(self) nogil:
         """Number of joints"""
         return self.n_nodes
 
-    cdef inline DTYPE c_offset_desired(self, unsigned int index, DTYPE drive1, DTYPE drive2) nogil:
+    cdef inline DTYPE c_offset_desired(
+        self,
+        unsigned int iteration,
+        unsigned int index,
+        DriveArrayCy drives,
+    ) nogil:
         """Desired offset"""
-        return self.c_value_mod(index, drive1, drive2)
+        cdef double drive0 = drives.array[iteration, self.drive2joint_map.array[index, 0]]
+        cdef double drive1 = drives.array[iteration, self.drive2joint_map.array[index, 1]]
+        return self.c_value_mod(
+            index,
+            0.5*(drive0+drive1),
+            drive1-drive0,
+        )
 
     cdef inline DTYPE c_rate(self, unsigned int index) nogil:
         """Rate"""

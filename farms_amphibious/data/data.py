@@ -7,6 +7,7 @@ from farms_core import pylog
 
 from farms_core.io.hdf5 import hdf5_to_dict
 from farms_core.array.array import to_array
+from farms_core.array.array_cy import IntegerArray1D, IntegerArray2D
 from farms_core.array.types import NDARRAY_V1
 from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions, ControlOptions
@@ -32,20 +33,25 @@ class JointsControlArray(JointsControlArrayCy):
     @classmethod
     def from_options(cls, control: ControlOptions):
         """Default"""
-        return cls(np.array([
-            [
-                offset['gain'],
-                offset['bias'],
-                offset['low'],
-                offset['high'],
-                offset['saturation'],
-                rate,
-            ]
-            for offset, rate in zip(
-                control.motors_offsets(),
-                control.motors_offset_rates(),
-            )
-        ], dtype=np.double))
+        return cls(
+            array=np.array([
+                [
+                    offset['gain'],
+                    offset['bias'],
+                    offset['low'],
+                    offset['high'],
+                    offset['saturation'],
+                    rate,
+                ]
+                for offset, rate in zip(
+                    control.motors_offsets(),
+                    control.motors_offset_rates(),
+                )
+            ], dtype=np.double),
+            drive2joint_map=IntegerArray2D(
+                np.array(control.network.drive2joint, dtype=np.uintc)
+            ),
+        )
 
 
 class AmphibiousData(AmphibiousDataCy, AnimatData):
@@ -119,27 +125,24 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
                     n_iterations=simulation_options.n_iterations,
                 ),
                 oscillators=oscillators,
-                osc_connectivity=OscillatorConnectivity.from_connectivity(
+                osc2osc_map=OscillatorConnectivity.from_connectivity(
                     connectivity=animat_options.control.network.osc2osc,
                     map1=oscillators_map,
                     map2=oscillators_map,
                 ),
-                drive_connectivity=ConnectivityCy(
-                    connections=animat_options.control.network.drive2osc,
-                ),
-                joints_connectivity=JointsConnectivity.from_connectivity(
+                joints2osc_map=JointsConnectivity.from_connectivity(
                     connectivity=animat_options.control.network.joint2osc,
                     map1=oscillators_map,
                     map2=joints_map,
                 ),
-                contacts_connectivity=(
+                contacts2osc_map=(
                     ContactsConnectivity.from_connectivity(
                         connectivity=animat_options.control.network.contact2osc,
                         map1=oscillators_map,
                         map2=contacts_map,
                     )
                 ),
-                xfrc_connectivity=XfrcConnectivity.from_connectivity(
+                xfrc2osc_map=XfrcConnectivity.from_connectivity(
                     connectivity=animat_options.control.network.xfrc2osc,
                     map1=oscillators_map,
                     map2=xfrc_map,
@@ -174,7 +177,10 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
             timestep=dictionary['timestep'],
             state=OscillatorNetworkState(dictionary['state'], n_oscillators),
             network=NetworkParameters.from_dict(dictionary['network']),
-            joints=JointsControlArrayCy(dictionary['joints']),
+            joints=JointsControlArrayCy(
+                array=dictionary['joints'],
+                drive2joint_map=IntegerArray2D(dictionary['drive2joint_map']),
+            ),
             sensors=SensorsData.from_dict(dictionary['sensors']),
         )
 
@@ -185,6 +191,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
             'state': to_array(self.state.array),
             'network': self.network.to_dict(iteration),
             'joints': to_array(self.joints.array),
+            'drive2joint_map': to_array(self.joints.drive2joint_map.array),
         })
         return data_dict
 

@@ -29,6 +29,8 @@ def options_kwargs_keys():
         'bodylimb_none',
         'bodylimb_single',
         'bodylimb_overlap',
+        'legs_freq_gain',
+        'legs_freq_bias',
         'weight_osc_body_side',
         'weight_osc_body_down',
         'weight_osc_legs_internal',
@@ -474,7 +476,7 @@ class AmphibiousControlOptions(ControlOptions):
             for side_i in range(2):
                 offsets[convention.bodyjoint2index(joint_i=joint_i)] = (
                     AmphibiousMotorOffsetOptions(
-                        gain=1,
+                        gain=0,
                         bias=0,
                         low=1,
                         high=5,
@@ -494,17 +496,17 @@ class AmphibiousControlOptions(ControlOptions):
         )
         leg_turn_gain = kwargs.pop(
             'leg_turn_gain',
-            [-1, 1]
+            [0, 0]
             if convention.n_legs == 4
             else (-np.ones(convention.n_legs_pair())).tolist()
         )
         leg_side_turn_gain = kwargs.pop(
             'leg_side_turn_gain',
-            [-1, 1]
+            [0, 0]
         )
         leg_joint_turn_gain = kwargs.pop(
             'leg_joint_turn_gain',
-            [1, -1, 0, -1, 0],
+            [0, 0, 0, 0, 0],
         )
 
         # Augment parameters
@@ -845,6 +847,7 @@ class AmphibiousNetworkOptions(Options):
         # Connections
         self.osc2osc = kwargs.pop('osc2osc', None)
         self.drive2osc = kwargs.pop('drive2osc', None)
+        self.drive2joint = kwargs.pop('drive2joint', None)
         self.joint2osc = kwargs.pop('joint2osc', None)
         self.contact2osc = kwargs.pop('contact2osc', None)
         self.xfrc2osc = kwargs.pop('xfrc2osc', None)
@@ -906,7 +909,6 @@ class AmphibiousNetworkOptions(Options):
                     name=None,
                     initial_phase=None,
                     initial_amplitude=None,
-                    input_drive=None,
                     frequency_gain=None,
                     frequency_bias=None,
                     frequency_low=None,
@@ -975,8 +977,6 @@ class AmphibiousNetworkOptions(Options):
                 osc.initial_phase = float(state_init[osc_i])
             if osc.initial_amplitude is None:
                 osc.initial_amplitude = float(state_init[osc_i+n_oscillators])
-            if osc.input_drive is None:
-                osc.input_drive = 0
             if osc.frequency_gain is None:
                 osc.frequency_gain = osc_frequencies[osc_i]['gain']
             if osc.frequency_bias is None:
@@ -1122,6 +1122,18 @@ class AmphibiousNetworkOptions(Options):
                     standing=standing,
                 )
             )
+        if self.drive2osc is None:
+            self.drive2osc = [
+                info['side']
+                if (info := convention.oscindex2information(osc_i))['body']
+                else info['side_i']
+                for osc_i, _ in enumerate(self.oscillators)
+            ]
+        if self.drive2joint is None:
+            self.drive2joint = [
+                [0, 1]
+                for _ in range(convention.n_joints())
+            ]
         if self.joint2osc is None:
             self.joint2osc = self.default_joint2osc(
                 convention,
@@ -1310,8 +1322,8 @@ class AmphibiousNetworkOptions(Options):
                             joint_i,
                             side=side,
                         )] = {
-                            'gain': 0,
-                            'bias': amplitude,
+                            'gain': 0.5*amplitude,
+                            'bias': 0,
                             'low': 1,
                             'high': 3,
                             'saturation': 0,
@@ -1931,7 +1943,6 @@ class AmphibiousOscillatorOptions(Options):
         self.name = kwargs.pop('name')
         self.initial_phase = kwargs.pop('initial_phase')
         self.initial_amplitude = kwargs.pop('initial_amplitude')
-        self.input_drive = kwargs.pop('input_drive')
         self.frequency_gain = kwargs.pop('frequency_gain')
         self.frequency_bias = kwargs.pop('frequency_bias')
         self.frequency_low = kwargs.pop('frequency_low')

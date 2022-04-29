@@ -64,7 +64,7 @@ cpdef inline void ode_dphase(
     cdef unsigned int i, i0, i1, n_oscillators = oscillators.n_oscillators
     for i in range(n_oscillators):
         # Intrinsic frequency
-        dstate[i] = oscillators.c_angular_frequency(i, drives.c_speed(iteration))
+        dstate[i] = oscillators.c_angular_frequency(iteration, i, drives)
         if oscillators.c_modular_amplitudes(i) > 1e-3:
             dstate[i] *= (
                 1 + oscillators.c_modular_amplitudes(i)*cos(
@@ -97,7 +97,7 @@ cpdef inline void ode_damplitude(
     for i in range(n_oscillators):  # , nogil=True):
         # rate*(nominal_amplitude - amplitude)
         dstate[n_oscillators+i] = oscillators.c_rate(i)*(
-            oscillators.c_nominal_amplitude(i, drives.c_speed(iteration))
+            oscillators.c_nominal_amplitude(iteration, i, drives)
             - amplitude(state, i, n_oscillators)
         )
 
@@ -107,7 +107,7 @@ cpdef inline void ode_stretch(
     DTYPEv1 state,
     DTYPEv1 dstate,
     JointSensorArrayCy joints,
-    JointsConnectivityCy joints_connectivity,
+    JointsConnectivityCy joints2osc_map,
     unsigned int n_oscillators,
 ) nogil:
     """Sensory feedback - Stretch
@@ -116,21 +116,21 @@ cpdef inline void ode_stretch(
 
     """
     cdef unsigned int i, i0, i1, connection_type
-    for i in range(joints_connectivity.n_connections):
-        i0 = joints_connectivity.connections.array[i, 0]
-        i1 = joints_connectivity.connections.array[i, 1]
-        connection_type = joints_connectivity.connections.array[i, 2]
+    for i in range(joints2osc_map.n_connections):
+        i0 = joints2osc_map.connections.array[i, 0]
+        i1 = joints2osc_map.connections.array[i, 1]
+        connection_type = joints2osc_map.connections.array[i, 2]
         if connection_type == ConnectionType.STRETCH2FREQ:
             # stretch_weight*joint_position  # *sin(phase)
             dstate[i0] += (
-                joints_connectivity.c_weight(i)
+                joints2osc_map.c_weight(i)
                 *joints.position_cy(iteration, i1)
                 # *sin(state[i0])  # For Tegotae
             )
         elif connection_type == ConnectionType.STRETCH2AMP:
             # stretch_weight*joint_position  # *sin(phase)
             dstate[n_oscillators+i0] += (
-                joints_connectivity.c_weight(i)
+                joints2osc_map.c_weight(i)
                 *joints.position_cy(iteration, i1)
                 # *sin(state[i0])  # For Tegotae
             )
@@ -150,7 +150,7 @@ cpdef inline void ode_contacts(
     DTYPEv1 state,
     DTYPEv1 dstate,
     ContactsArrayCy contacts,
-    ContactsConnectivityCy contacts_connectivity,
+    ContactsConnectivityCy contacts2osc_map,
 ) nogil:
     """Sensory feedback - Contacts
 
@@ -159,20 +159,20 @@ cpdef inline void ode_contacts(
     """
     cdef DTYPE contact_reaction
     cdef unsigned int i, i0, i1, connection_type
-    for i in range(contacts_connectivity.n_connections):
-        i0 = contacts_connectivity.connections.array[i, 0]
-        i1 = contacts_connectivity.connections.array[i, 1]
-        connection_type = contacts_connectivity.connections.array[i, 2]
+    for i in range(contacts2osc_map.n_connections):
+        i0 = contacts2osc_map.connections.array[i, 0]
+        i1 = contacts2osc_map.connections.array[i, 1]
+        connection_type = contacts2osc_map.connections.array[i, 2]
         contact_reaction = fabs(contacts.c_reaction_z(iteration, i1))
         if connection_type == ConnectionType.REACTION2FREQ:
             dstate[i0] += (
-                contacts_connectivity.c_weight(i)
-                *saturation(contact_reaction, 10)  # Saturation
+                contacts2osc_map.c_weight(i)
+                *saturation(contact_reaction, 10)
             )
         elif connection_type == ConnectionType.REACTION2FREQTEGOTAE:
             dstate[i0] += (
-                contacts_connectivity.c_weight(i)
-                *saturation(contact_reaction, 10)  # Saturation
+                contacts2osc_map.c_weight(i)
+                *saturation(contact_reaction, 10)
                 # *cos(state[i0])
                 *sin(state[i0])  # For Tegotae
             )
@@ -183,7 +183,7 @@ cpdef inline void ode_xfrc(
     DTYPEv1 state,
     DTYPEv1 dstate,
     XfrcArrayCy xfrc,
-    XfrcConnectivityCy xfrc_connectivity,
+    XfrcConnectivityCy xfrc2osc_map,
     unsigned int n_oscillators,
 ) nogil:
     """Sensory feedback - Xfrc
@@ -193,20 +193,20 @@ cpdef inline void ode_xfrc(
     """
     cdef DTYPE xfrc_force
     cdef unsigned int i, i0, i1, connection_type
-    for i in range(xfrc_connectivity.n_connections):
-        i0 = xfrc_connectivity.connections.array[i, 0]
-        i1 = xfrc_connectivity.connections.array[i, 1]
-        connection_type = xfrc_connectivity.connections.array[i, 2]
+    for i in range(xfrc2osc_map.n_connections):
+        i0 = xfrc2osc_map.connections.array[i, 0]
+        i1 = xfrc2osc_map.connections.array[i, 1]
+        connection_type = xfrc2osc_map.connections.array[i, 2]
         xfrc_force = fabs(xfrc.c_force_y(iteration, i1))
         if connection_type == ConnectionType.LATERAL2FREQ:
             # dfrequency += xfrc_weight*xfrc_force
             dstate[i0] += (
-                xfrc_connectivity.c_weights(i)*xfrc_force
+                xfrc2osc_map.c_weights(i)*xfrc_force
             )
         elif connection_type == ConnectionType.LATERAL2AMP:
             # damplitude += xfrc_weight*xfrc_force
             dstate[n_oscillators+i0] += (
-                xfrc_connectivity.c_weights(i)*xfrc_force
+                xfrc2osc_map.c_weights(i)*xfrc_force
             )
         else:
             printf(
@@ -237,9 +237,9 @@ cpdef inline void ode_joints(
         # rate*(joints_offset_desired - joints_offset)
         dstate[2*n_oscillators+joint_i] = joints.c_rate(joint_i)*(
             joints.c_offset_desired(
+                iteration,
                 joint_i,
-                drives.c_turn(iteration),
-                drives.c_speed(iteration),
+                drives,
             ) - joint_offset(state, joint_i, n_oscillators)
         )
 
@@ -259,7 +259,7 @@ cpdef inline DTYPEv1 ode_oscillators_sparse(
         dstate=dstate,
         drives=data.network.drives,
         oscillators=data.network.oscillators,
-        connectivity=data.network.osc_connectivity,
+        connectivity=data.network.osc2osc_map,
     )
     ode_damplitude(
         iteration=iteration,
@@ -283,7 +283,7 @@ cpdef inline DTYPEv1 ode_oscillators_sparse(
         state=state,
         dstate=dstate,
         joints=data.sensors.joints,
-        joints_connectivity=data.network.joints_connectivity,
+        joints2osc_map=data.network.joints2osc_map,
         n_oscillators=data.network.oscillators.n_oscillators,
     )
     ode_contacts(
@@ -291,14 +291,14 @@ cpdef inline DTYPEv1 ode_oscillators_sparse(
         state=state,
         dstate=dstate,
         contacts=data.sensors.contacts,
-        contacts_connectivity=data.network.contacts_connectivity,
+        contacts2osc_map=data.network.contacts2osc_map,
     )
     ode_xfrc(
         iteration=iteration,
         state=state,
         dstate=dstate,
         xfrc=data.sensors.xfrc,
-        xfrc_connectivity=data.network.xfrc_connectivity,
+        xfrc2osc_map=data.network.xfrc2osc_map,
         n_oscillators=data.network.oscillators.n_oscillators,
     )
     return dstate

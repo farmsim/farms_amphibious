@@ -3,7 +3,7 @@
 from typing import Any
 import numpy as np
 cimport numpy as np
-from nptyping import NDArray
+from nptyping import NDArray, Shape
 
 
 cdef class AmphibiousDataCy(AnimatDataCy):
@@ -13,7 +13,25 @@ cdef class AmphibiousDataCy(AnimatDataCy):
 
 cdef class NetworkParametersCy:
     """Network parameters"""
-    pass
+
+    def __init__(
+            self,
+            drives: DriveArrayCy,
+            # drive2osc_map: ConnectivityCy,
+            oscillators: OscillatorsCy,
+            osc2osc_map: OscillatorsConnectivityCy,
+            joints2osc_map: JointsConnectivityCy,
+            contacts2osc_map: ContactsConnectivityCy,
+            xfrc2osc_map: XfrcConnectivityCy,
+    ):
+        super().__init__()
+        self.drives = drives
+        self.oscillators = oscillators
+        # self.drive2osc_map = drive2osc_map
+        self.joints2osc_map = joints2osc_map
+        self.osc2osc_map = osc2osc_map
+        self.contacts2osc_map = contacts2osc_map
+        self.xfrc2osc_map = xfrc2osc_map
 
 
 cdef class OscillatorNetworkStateCy(DoubleArray2D):
@@ -21,7 +39,7 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
 
     def __init__(
             self,
-            array: NDArray[(Any, Any), np.double],
+            array: NDArray[Shape['*, *'], np.double],
             n_oscillators: int,
     ):
         assert np.ndim(array) == 2, 'Ndim {np.ndim(array)} != 2'
@@ -68,14 +86,6 @@ cdef class DriveDependentArrayCy(DoubleArray2D):
         super().__init__(array=array)
         self.n_nodes = np.shape(array)[0]
 
-    cdef DTYPE value(self, unsigned int index, DTYPE drive):
-        """Value for a given drive"""
-        return (
-            self.gain[index]*drive + self.bias[index]
-            if self.low[index] <= drive <= self.high[index]
-            else self.saturation[index]
-        )
-
 
 cdef class OscillatorsCy:
     """Oscillators"""
@@ -83,9 +93,21 @@ cdef class OscillatorsCy:
     def __init__(
             self,
             n_oscillators: int,
+            drive2osc_map: NDArray[Shape['*'], np.uint],
+            intrinsic_frequencies: DriveDependentArrayCy,
+            nominal_amplitudes: DriveDependentArrayCy,
+            rates: NDArray[Shape['*'], np.double],
+            modular_phases: NDArray[Shape['*'], np.double],
+            modular_amplitudes: NDArray[Shape['*'], np.double],
     ):
         super().__init__()
         self.n_oscillators = n_oscillators
+        self.drive2osc_map = drive2osc_map
+        self.intrinsic_frequencies = intrinsic_frequencies
+        self.nominal_amplitudes = nominal_amplitudes
+        self.rates = rates
+        self.modular_phases = modular_phases
+        self.modular_amplitudes = modular_amplitudes
 
 
 cdef class ConnectivityCy:
@@ -205,3 +227,15 @@ cdef class XfrcConnectivityCy(ConnectivityCy):
             self.weights = DoubleArray1D(weights)
         else:
             self.weights = DoubleArray1D(None)
+
+
+cdef class JointsControlArrayCy(DriveDependentArrayCy):
+    """Joints control array"""
+
+    def __init__(
+            self,
+            array: NDArray[(Any, Any), np.double],
+            drive2joint_map: NDArray[(Any, Any), np.uint],
+    ):
+        super().__init__(array=array)
+        self.drive2joint_map = drive2joint_map

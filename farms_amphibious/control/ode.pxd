@@ -43,7 +43,7 @@ cpdef inline void ode_stretch(
     DTYPEv1 state,
     DTYPEv1 dstate,
     JointSensorArrayCy joints,
-    JointsConnectivityCy joints_connectivity,
+    JointsConnectivityCy joints2osc_map,
     unsigned int n_oscillators,
 ) nogil
 
@@ -53,7 +53,7 @@ cpdef void ode_contacts(
     DTYPEv1 state,
     DTYPEv1 dstate,
     ContactsArrayCy contacts,
-    ContactsConnectivityCy contacts_connectivity,
+    ContactsConnectivityCy contacts2osc_map,
 ) nogil
 
 
@@ -62,7 +62,7 @@ cpdef void ode_xfrc(
     DTYPEv1 state,
     DTYPEv1 dstate,
     XfrcArrayCy xfrc,
-    XfrcConnectivityCy xfrc_connectivity,
+    XfrcConnectivityCy xfrc2osc_map,
     unsigned int n_oscillators,
 ) nogil
 

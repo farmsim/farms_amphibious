@@ -438,13 +438,13 @@ class NetworkFigure:
             np.array([
                 [connection[0], connection[1], weight, phase]
                 for connection, weight, phase in zip(
-                    self.data.network.osc_connectivity.connections.array,
-                    self.data.network.osc_connectivity.weights.array,
-                    self.data.network.osc_connectivity.desired_phases.array,
+                    self.data.network.osc2osc_map.connections.array,
+                    self.data.network.osc2osc_map.weights.array,
+                    self.data.network.osc2osc_map.desired_phases.array,
                 )
                 if osc_conn_cond(connection[0], connection[1])
             ])
-            if self.data.network.osc_connectivity.connections.array
+            if self.data.network.osc2osc_map.connections.array
             else np.empty(0)
         )
 
@@ -507,11 +507,11 @@ class NetworkFigure:
         connections = np.array([
             [connection[0], connection[1], weight]
             for connection, weight in zip(
-                self.data.network.contacts_connectivity.connections.array,
-                self.data.network.contacts_connectivity.weights.array,
+                self.data.network.contacts2osc_map.connections.array,
+                self.data.network.contacts2osc_map.weights.array,
             )
             if contact_conn_cond(connection[0], connection[1])
-        ]) if self.data.network.contacts_connectivity.connections.array else np.empty(0)
+        ]) if self.data.network.contacts2osc_map.connections.array else np.empty(0)
         options = {}
         use_weights = use_colorbar and kwargs.pop('contacts_weights', False)
         if use_weights:
@@ -522,7 +522,7 @@ class NetworkFigure:
             else:
                 options['weights'] = []
                 vmin, vmax = 0, 1
-        self.contact_sensors, self.contact_sensor_texts, contact_connectivity = draw_network(
+        self.contact_sensors, self.contact_sensor_texts, contact2osc_map = draw_network(
             source=contacts_positions,
             destination=oscillator_positions,
             radius=radius,
@@ -548,11 +548,11 @@ class NetworkFigure:
         connections = np.array([
             [connection[0], connection[1], connection[2], weight]
             for connection, weight in zip(
-                self.data.network.xfrc_connectivity.connections.array,
-                self.data.network.xfrc_connectivity.weights.array,
+                self.data.network.xfrc2osc_map.connections.array,
+                self.data.network.xfrc2osc_map.weights.array,
             )
             if xfrc_conn_cond(connection[0], connection[1])
-        ]) if self.data.network.xfrc_connectivity.connections.array else np.empty(0)
+        ]) if self.data.network.xfrc2osc_map.connections.array else np.empty(0)
         options = {}
         xfrc_frequency_weights = kwargs.pop('xfrc_frequency_weights', False)
         xfrc_amplitude_weights = kwargs.pop('xfrc_amplitude_weights', False)
@@ -578,13 +578,13 @@ class NetworkFigure:
             else:
                 options['weights'] = []
                 vmin, vmax = 0, 1
-        self.xfrc_sensors, self.xfrc_sensor_texts, xfrc_connectivity = draw_network(
+        self.xfrc_sensors, self.xfrc_sensor_texts, xfrc2osc_map = draw_network(
             source=xfrc_positions,
             destination=oscillator_positions,
             radius=radius,
             connectivity=[
                 connection
-                for connection in self.data.network.xfrc_connectivity.connections.array
+                for connection in self.data.network.xfrc2osc_map.connections.array
                 # if xfrc_conn_cond(connection[0], connection[1])
                 if (not xfrc_frequency_weights and not xfrc_amplitude_weights)
                 or (
@@ -602,7 +602,7 @@ class NetworkFigure:
             alpha=2*alpha,
             show_text=show_text,
             **options,
-        ) if self.data.network.xfrc_connectivity.connections.array else [[]]*3
+        ) if self.data.network.xfrc2osc_map.connections.array else [[]]*3
 
         # Show elements
         [
@@ -627,10 +627,10 @@ class NetworkFigure:
             for arrow in oscillators_connectivity:
                 self.axes.add_artist(arrow)
         if show_contacts_connectivity:
-            for arrow in contact_connectivity:
+            for arrow in contact2osc_map:
                 self.axes.add_artist(arrow)
         if show_xfrc_connectivity:
-            for arrow in xfrc_connectivity:
+            for arrow in xfrc2osc_map:
                 self.axes.add_artist(arrow)
         if show_oscillators:
             for circle, text in zip(
