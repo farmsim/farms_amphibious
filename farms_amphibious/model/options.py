@@ -602,47 +602,47 @@ class AmphibiousControlOptions(ControlOptions):
                 for joint_i, joint_name in enumerate(joints_names)
             },
         )
-        for joint_i, joint in enumerate(self.motors):
+        for motor_i, motor in enumerate(self.motors):
 
             # Control
-            if joint.joint_name is None:
-                joint.joint_name = joints_names[joint_i]
-            if joint.equation is None:
-                joint.equation = equations[joint.joint_name]
-            if not joint.control_types:
-                joint.control_types = {
+            if motor.joint_name is None:
+                motor.joint_name = joints_names[motor_i]
+            if motor.equation is None:
+                motor.equation = equations[motor.joint_name]
+            if not motor.control_types:
+                motor.control_types = {
                     'position': ['position'],
                     'phase': ['position'],
                     'ekeberg_muscle': ['velocity', 'torque'],
                     'ekeberg_muscle_explicit': ['torque'],
                     'passive': ['velocity', 'torque'],
                     'passive_explicit': ['torque'],
-                }[joint.equation]
-            if joint.limits_torque is None:
-                joint.limits_torque = [
-                    -max_torques[joint.joint_name],
-                    +max_torques[joint.joint_name],
+                }[motor.equation]
+            if motor.limits_torque is None:
+                motor.limits_torque = [
+                    -max_torques[motor.joint_name],
+                    +max_torques[motor.joint_name],
                 ]
 
             # Transform
-            if joint.transform.gain is None:
-                joint.transform.gain = transform_gain[joint.joint_name]
-            if joint.transform.bias is None:
-                joint.transform.bias = transform_bias[joint.joint_name]
+            if motor.transform.gain is None:
+                motor.transform.gain = transform_gain[motor.joint_name]
+            if motor.transform.bias is None:
+                motor.transform.bias = transform_bias[motor.joint_name]
 
             # Offset
-            if joint.offsets.gain is None:
-                joint.offsets.gain = offsets[joint_i]['gain']
-            if joint.offsets.bias is None:
-                joint.offsets.bias = offsets[joint_i]['bias']
-            if joint.offsets.low is None:
-                joint.offsets.low = offsets[joint_i]['low']
-            if joint.offsets.high is None:
-                joint.offsets.high = offsets[joint_i]['high']
-            if joint.offsets.saturation is None:
-                joint.offsets.saturation = offsets[joint_i]['saturation']
-            if joint.offsets.rate is None:
-                joint.offsets.rate = offsets[joint_i]['rate']
+            if motor.offsets.gain is None:
+                motor.offsets.gain = offsets[motor_i]['gain']
+            if motor.offsets.bias is None:
+                motor.offsets.bias = offsets[motor_i]['bias']
+            if motor.offsets.low is None:
+                motor.offsets.low = offsets[motor_i]['low']
+            if motor.offsets.high is None:
+                motor.offsets.high = offsets[motor_i]['high']
+            if motor.offsets.saturation is None:
+                motor.offsets.saturation = offsets[motor_i]['saturation']
+            if motor.offsets.rate is None:
+                motor.offsets.rate = offsets[motor_i]['rate']
 
         # Passive
         joints_passive = kwargs.pop('joints_passive', [])
@@ -651,7 +651,7 @@ class AmphibiousControlOptions(ControlOptions):
             AmphibiousMotorOptions(
                 joint_name=joint_name,
                 control_types=['velocity', 'torque'],
-                limits_torque=[-np.inf, np.inf],
+                limits_torque=[-default_max_torque, default_max_torque],
                 equation='passive',
                 transform=AmphibiousMotorTransformOptions(
                     gain=1,
