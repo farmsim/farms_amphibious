@@ -246,7 +246,7 @@ def plotting(times, pos, drive, phi):
     if limit_cycle is not None:
         ax3.plot(limit_cycle[:, 0], limit_cycle[:, 1], label='Limit trajectory')
     if pos is not None:
-        ax3.plot(pos[0, :], pos[1, :], label='Robot trajectory')
+        ax3.plot(pos[0, :], pos[1, :], label='Animat trajectory')
         ax3.plot(pos[0, 0], pos[1, 0], 'x', label='Animat initial position')
     ax3.set_xlim(x_lim)
     ax3.set_ylim(y_lim)
@@ -262,7 +262,7 @@ def plotting(times, pos, drive, phi):
 
     ax3.set_xlabel('X coordinate [m]')
     ax3.set_ylabel('Y coordinate [m]')
-    ax3.set_title('Robot trajectory')
+    ax3.set_title('Animat trajectory')
     ax3.legend()
     plt.grid(True)
     plt.gca().set_aspect('equal')
@@ -300,13 +300,13 @@ def plot_trajectory(strategy, pos, arrow_res=None):
     if limit_cycle is not None:
         ax3.plot(limit_cycle[:, 0], limit_cycle[:, 1], label='Limit trajectory')
     if pos is not None:
-        ax3.plot(pos[:, 0], pos[:, 1], label='Robot trajectory')
+        ax3.plot(pos[:, 0], pos[:, 1], label='Animat trajectory')
         ax3.plot(pos[0, 0], pos[0, 1], 'x', label='Animat initial position')
     ax3.set_xlim(x_lim)
     ax3.set_ylim(y_lim)
     ax3.set_xlabel('X coordinate [m]')
     ax3.set_ylabel('Y coordinate [m]')
-    ax3.set_title('Robot trajectory')
+    ax3.set_title('Animat trajectory')
     ax3.legend()
     plt.grid(True)
     plt.gca().set_aspect('equal')

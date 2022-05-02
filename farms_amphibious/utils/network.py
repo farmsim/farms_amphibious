@@ -70,7 +70,7 @@ def draw_nodes(positions, radius, color, prefix, show_text=True):
             # ha='left',
             va='center',
             ha='center',
-            fontsize=8,
+            fontsize=6,
             color='k',
             animated=True,
         ) if show_text else None
@@ -211,6 +211,8 @@ class NetworkFigure:
         # Artists
         self.oscillators = None
         self.oscillators_texts = None
+        self.drives = None
+        self.drives_texts = None
         self.contact_sensors = None
         self.contact_sensor_texts = None
         self.xfrc_sensors = None
@@ -225,9 +227,11 @@ class NetworkFigure:
         self.n_frames = round(self.n_iterations*self.timestep / (1e-3*self.interval))
         self.network = NetworkODE(self.data)
         self.cmap_phases = plt.get_cmap('Greens')
+        self.cmap_drives = plt.get_cmap('Blues')
+        self.cmap_drive_max = 6
         self.cmap_contacts = plt.get_cmap('Oranges')
         self.cmap_contact_max = 2e-1
-        self.cmap_xfrc = plt.get_cmap('Blues')
+        self.cmap_xfrc = plt.get_cmap('Reds')
         self.cmap_xfrc_max = 2e-2
 
     def animate(self, convention, **kwargs):
@@ -251,6 +255,7 @@ class NetworkFigure:
             color='k',
             animated=True,
         )
+
         # Oscillators
         divider = make_axes_locatable(self.axes)
         size = '5%'
@@ -263,6 +268,17 @@ class NetworkFigure:
             cax=cax,
         )
         cbar.ax.set_ylabel('Oscillators output', rotation=270)
+        cbar.ax.get_yaxis().labelpad = -30
+
+        # Drives
+        cax = divider.append_axes('right', size=size, pad=pad)
+        cbar = create_colorbar(
+            self.axes,
+            cmap=self.cmap_drives,
+            vmin=0, vmax=self.cmap_drive_max,
+            cax=cax,
+        )
+        cbar.ax.set_ylabel('Drives', rotation=270)
         cbar.ax.get_yaxis().labelpad = -30
 
         # Contacts
@@ -303,6 +319,8 @@ class NetworkFigure:
         return [self.time] + (
             self.oscillators
             + self.oscillators_texts
+            + self.drives
+            + self.drives_texts
             + self.contact_sensors
             + self.contact_sensor_texts
             + self.xfrc_sensors
@@ -324,6 +342,18 @@ class NetworkFigure:
         for oscillator, phase in zip(self.oscillators, phases):
             value = 0.5*(1+np.cos(phase))
             oscillator.set_facecolor(self.cmap_phases(value))
+
+        # Drive
+        drives_array = self.data.network.drives.array[iteration]
+        for drive, value in zip(self.drives, drives_array):
+            drive.set_facecolor(self.cmap_drives(value))
+        for drive_i, drive in enumerate(self.drives):
+            value = np.clip(
+                a=drives_array[drive_i],
+                a_min=0,
+                a_max=self.cmap_drive_max,
+            )
+            drive.set_facecolor(self.cmap_drives(value/self.cmap_drive_max))
 
         # Contacts sensors
         contacts = self.data.sensors.contacts
@@ -475,13 +505,32 @@ class NetworkFigure:
             destination=oscillator_positions,
             radius=radius,
             connectivity=connections,
-            prefix='O_',
+            prefix='O',
             rad=rads[0],
             color_nodes='C2',
             color_arrows=cmap if use_weights else None,
             alpha=alpha,
             show_text=show_text,
             **options,
+        )
+
+        # Drives
+        drives_positions = np.array([
+            [2, +2],
+            [2, -2],
+        ])
+        self.drives, self.drives_texts, drive2osc_map = draw_network(
+            source=drives_positions,
+            destination=oscillator_positions,
+            radius=0.8*radius,
+            connectivity=[],
+            prefix='D',
+            rad=rads[1],
+            color_nodes='C0',
+            color_arrows=None,
+            alpha=alpha,
+            show_text=show_text,
+            weights=[],
         )
 
         # Contacts
@@ -496,7 +545,7 @@ class NetworkFigure:
                 for leg_x in leg_pos
                 for side_y in [1, -1]
             ] + [
-                [-(2*osc_x+1), 0]
+                [-(2*osc_x+1+0.25), 0]
                 for osc_x in range(-1, convention.n_joints_body)
             ]
         ) if animat_options.control.sensors.contacts else []
@@ -525,9 +574,9 @@ class NetworkFigure:
         self.contact_sensors, self.contact_sensor_texts, contact2osc_map = draw_network(
             source=contacts_positions,
             destination=oscillator_positions,
-            radius=radius,
+            radius=0.8*radius,
             connectivity=connections,
-            prefix='C_',
+            prefix='C',
             rad=rads[1],
             color_nodes='C1',
             color_arrows=cmap if use_weights else None,
@@ -538,7 +587,7 @@ class NetworkFigure:
 
         # Xfrc
         xfrc_positions = np.array([
-            [-(2*osc_x+1), 0]
+            [-(2*osc_x+1-0.25), 0]
             for osc_x in range(-1, convention.n_joints_body)
         ])
         xfrc_conn_cond = kwargs.pop(
@@ -581,7 +630,7 @@ class NetworkFigure:
         self.xfrc_sensors, self.xfrc_sensor_texts, xfrc2osc_map = draw_network(
             source=xfrc_positions,
             destination=oscillator_positions,
-            radius=radius,
+            radius=0.8*radius,
             connectivity=[
                 connection
                 for connection in self.data.network.xfrc2osc_map.connections.array
@@ -595,9 +644,9 @@ class NetworkFigure:
                     and connection[2] == ConnectionType.LATERAL2AMP
                 )
             ],
-            prefix='H_',
+            prefix='H',
             rad=rads[2],
-            color_nodes='C0',
+            color_nodes='C3',
             color_arrows=cmap if use_weights else None,
             alpha=2*alpha,
             show_text=show_text,
@@ -607,24 +656,31 @@ class NetworkFigure:
         # Show elements
         [
             show_oscillators,
+            show_drives,
             show_contacts,
             show_xfrc,
             show_oscillators_connectivity,
+            show_drives_connectivity,
             show_contacts_connectivity,
             show_xfrc_connectivity,
         ] = [
             kwargs.pop(key, True)
             for key in [
                 'show_oscillators',
+                'show_drives',
                 'show_contacts',
                 'show_xfrc',
                 'show_oscillators_connectivity',
+                'show_drives_connectivity',
                 'show_contacts_connectivity',
                 'show_xfrc_connectivity',
             ]
         ]
         if show_oscillators_connectivity:
             for arrow in oscillators_connectivity:
+                self.axes.add_artist(arrow)
+        if show_drives_connectivity:
+            for arrow in drive2osc_map:
                 self.axes.add_artist(arrow)
         if show_contacts_connectivity:
             for arrow in contact2osc_map:
@@ -636,6 +692,14 @@ class NetworkFigure:
             for circle, text in zip(
                     self.oscillators,
                     self.oscillators_texts,
+            ):
+                self.axes.add_artist(circle)
+                if show_text:
+                    self.axes.add_artist(text)
+        if show_drives:
+            for circle, text in zip(
+                    self.drives,
+                    self.drives_texts,
             ):
                 self.axes.add_artist(circle)
                 if show_text:
