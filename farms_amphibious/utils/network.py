@@ -70,7 +70,7 @@ def draw_nodes(positions, radius, color, prefix, show_text=True):
             # ha='left',
             va='center',
             ha='center',
-            fontsize=6,
+            fontsize=5,
             color='k',
             animated=True,
         ) if show_text else None
@@ -227,7 +227,7 @@ class NetworkFigure:
         self.n_frames = round(self.n_iterations*self.timestep / (1e-3*self.interval))
         self.network = NetworkODE(self.data)
         self.cmap_phases = plt.get_cmap('Greens')
-        self.cmap_drives = plt.get_cmap('Blues')
+        self.cmap_drives = plt.get_cmap('turbo')
         self.cmap_drive_max = 6
         self.cmap_contacts = plt.get_cmap('Oranges')
         self.cmap_contact_max = 2e-1
@@ -522,7 +522,7 @@ class NetworkFigure:
         self.drives, self.drives_texts, drive2osc_map = draw_network(
             source=drives_positions,
             destination=oscillator_positions,
-            radius=0.8*radius,
+            radius=1.2*radius,
             connectivity=[],
             prefix='D',
             rad=rads[1],
