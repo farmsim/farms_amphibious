@@ -125,6 +125,8 @@ def main():
     camera = yaml2pyobject(clargs.snapshots_config)
     img = mpimg.imread(clargs.snapshots_render)
     data = AnimatData.from_file(clargs.sim_data)
+    links_sensors = data.sensors.links
+    contacts_sensors = data.sensors.contacts
     sep = np.linalg.norm(camera['separation'])
     iterations = camera['iterations']
     n_snapshots = len(iterations)
@@ -150,7 +152,6 @@ def main():
     )
 
     # CoM
-    links_sensors = data.sensors.links
     com_camera = [
         transform(
             point=links_sensors.global_com_position(iteration=iteration)[:2],
@@ -175,10 +176,12 @@ def main():
         )
         head_pos_local.append(pos_plot[0])
 
-        # Plot limbs positions
+        # Limbs analysis
         for leg_i in range(convention.n_legs_pair()):
             for side_i in range(2):
-                plot_snapshot_links_positions(
+
+                # Plot limbs positions
+                pos_plot = plot_snapshot_links_positions(
                     snapshot_i=i, iteration=iteration,
                     links_sensors=links_sensors,
                     indices=(
@@ -195,17 +198,31 @@ def main():
                     sep=sep, mov=mov, rot=rot,
                 )
 
+                # Plot contacts
+                if foot:
+                    force = np.linalg.norm(contacts_sensors.total(
+                        iteration=iteration,
+                        sensor_i=2*leg_i+side_i,
+                    ))
+                    if force > 1e-3:
+                        lines = plt.plot(
+                            pos_plot[-1, 0], pos_plot[-1, 1],
+                            'C1o', markersize=3,
+                        )
+                        for line in lines:  # Background
+                            line.set_zorder(0)
+
         # Plot CoM
         plt.plot(pos[0], pos[1]+sep*i, 'r*', alpha=.7)
 
     # Head advancement
     head_pos_local = np.array(head_pos_local)
     plt.plot(
-        head_pos_local[[0, -1], 0],
-        head_pos_local[[0, -1], 1],
+        head_pos_local[[0, -1], 0], head_pos_local[[0, -1], 1],
         'k--', alpha=.3, linewidth=0.5,
     )
 
+    # Snapshots ticks
     plt.yticks(
         ticks=[sep*i+com_mean for i in range(n_snapshots)],
         labels=range(1, n_snapshots+1),
