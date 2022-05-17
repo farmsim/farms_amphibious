@@ -4,7 +4,8 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
-from farms_core.io.yaml import yaml2pyobject
+from PyPDF2 import PdfFileReader
+from farms_core.io.yaml import yaml2pyobject, pyobject2yaml
 from farms_core.model.data import AnimatData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.model.convention import AmphibiousConvention
@@ -49,6 +50,11 @@ def argument_parser() -> ArgumentParser:
         '--output',
         type=str,
         help='Output path',
+    )
+    parser.add_argument(
+        '--output_config',
+        type=str,
+        help='Output config path',
     )
     parser.add_argument(
         '--figsize',
@@ -238,6 +244,12 @@ def main():
 
     # Save figure
     plt.savefig(clargs.output, dpi=clargs.dpi, bbox_inches='tight')
+
+    # Get figure info
+    with open(clargs.output, 'rb') as pdf_file:
+        pdf = PdfFileReader(pdf_file)
+        res = [float(val) for val in pdf.getPage(0).mediaBox]
+    pyobject2yaml(clargs.output_config, {'box': res})
 
 
 if __name__ == '__main__':
