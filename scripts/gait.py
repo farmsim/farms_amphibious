@@ -61,7 +61,7 @@ def argument_parser() -> ArgumentParser:
         metavar='size_x, size_y',
         type=float,
         nargs=2,
-        default=(5, 10),
+        default=(7, 10),
         help='Figure size',
     )
     parser.add_argument(
@@ -229,10 +229,9 @@ def main():
     )
 
     # Snapshots ticks
-    plt.yticks(
-        ticks=[sep*i+com_mean for i in range(n_snapshots)],
-        labels=range(1, n_snapshots+1),
-    )
+    yticks = [sep*i+com_mean for i in range(n_snapshots)]
+    plt.yticks(ticks=yticks, labels=range(1, n_snapshots+1))
+    plt.ylim([yticks[-1] + sep, yticks[0] - sep])
 
     # Final layout
     plt.xlabel('Distance [m]')
