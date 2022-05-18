@@ -5,6 +5,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
 from matplotlib.patches import FancyArrowPatch, ArrowStyle, ConnectionStyle
+from scipy.interpolate import interp1d
 from PyPDF2 import PdfFileReader
 from farms_core.io.yaml import yaml2pyobject, pyobject2yaml
 from farms_core.simulation.options import SimulationOptions
@@ -113,15 +114,23 @@ def snapshot_links_positions(
     return np.array([[pos[0], pos[1] + sep*snapshot_i] for pos in pos_local])
 
 
-def plot_snapshot_links_positions(**kwargs):
+def plot_snapshot_links_positions(interpolate=False, **kwargs):
     """Plot snapshot links positions"""
     style = kwargs.pop('style', 'ko-')
     alpha = kwargs.pop('alpha', 0.5)
     markersize = kwargs.pop('markersize', 1)
     linewidth = kwargs.pop('linewidth', 1)
     pos_plot = snapshot_links_positions(**kwargs)
+    if interpolate:
+        n_points = pos_plot.shape[0]
+        f_data_x = interp1d(range(n_points), pos_plot[:, 0], kind='cubic')
+        f_data_y = interp1d(range(n_points), pos_plot[:, 1], kind='cubic')
+        data_x = f_data_x(np.linspace(0, n_points-1, 20))
+        data_y = f_data_y(np.linspace(0, n_points-1, 20))
+    else:
+        data_x, data_y = pos_plot[:, 0], pos_plot[:, 1]
     plt.plot(
-        pos_plot[:, 0], pos_plot[:, 1],
+        data_x, data_y,
         style, alpha=alpha, markersize=markersize, linewidth=linewidth,
     )
     return pos_plot
@@ -181,6 +190,7 @@ def main():
 
         # Plot body positions
         pos_plot = plot_snapshot_links_positions(
+            interpolate=True,
             snapshot_i=i, iteration=iteration, links_sensors=links_sensors,
             indices=range(convention.n_links_body()),
             sep=sep, mov=mov, rot=rot,
