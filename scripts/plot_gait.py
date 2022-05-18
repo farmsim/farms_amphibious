@@ -166,14 +166,11 @@ def main():
     )
 
     # CoM
-    com_camera = [
-        transform(
-            point=links_sensors.global_com_position(iteration=iteration)[:2],
-            mov=mov,
-            rot=rot,
-        )
-        for i, iteration in enumerate(iterations)
-    ]
+    com_global = np.array([
+        links_sensors.global_com_position(iteration=iteration)[:2]
+        for iteration in iterations
+    ])
+    com_camera = [transform(point=pos, mov=mov, rot=rot) for pos in com_global]
     com_camera = np.array(com_camera)
     com_mean = np.mean(com_camera[:, 1])
 
@@ -283,10 +280,15 @@ def main():
     plt.savefig(clargs.output, dpi=clargs.dpi, bbox_inches='tight')
 
     # Get figure info
+    time_total = (iterations[-1] - iterations[0])*sim_options.timestep
+    velocity = np.linalg.norm(com_global[-1] - com_global[0])/time_total
     with open(clargs.output, 'rb') as pdf_file:
         pdf = PdfFileReader(pdf_file)
         res = [float(val) for val in pdf.getPage(0).mediaBox]
-    pyobject2yaml(clargs.output_config, {'box': res})
+    pyobject2yaml(clargs.output_config, {
+        'velocity': velocity,
+        'box': res
+    })
 
 
 if __name__ == '__main__':
