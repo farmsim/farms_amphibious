@@ -4,8 +4,10 @@ from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter, Namespace
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.image as mpimg
+from matplotlib.patches import FancyArrowPatch, ArrowStyle, ConnectionStyle
 from PyPDF2 import PdfFileReader
 from farms_core.io.yaml import yaml2pyobject, pyobject2yaml
+from farms_core.simulation.options import SimulationOptions
 from farms_core.model.data import AnimatData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.model.convention import AmphibiousConvention
@@ -171,7 +173,7 @@ def main():
 
     # Plot for each snapshot
     head_pos_local = []
-    foot = 'foot_0_0' in links_sensors.names
+    has_foot = 'foot_0_0' in links_sensors.names
     for i, (iteration, pos) in enumerate(zip(iterations, com_camera)):
 
         # Plot body positions
@@ -197,7 +199,7 @@ def main():
                         ]
                         + (  # Foot
                             [-convention.n_legs + 2*leg_i + side_i]
-                            if foot
+                            if has_foot
                             else []
                         )
                     ),
@@ -205,7 +207,7 @@ def main():
                 )
 
                 # Plot contacts
-                if foot:
+                if has_foot:
                     force = np.linalg.norm(contacts_sensors.total(
                         iteration=iteration,
                         sensor_i=2*leg_i+side_i,
@@ -232,6 +234,34 @@ def main():
     yticks = [sep*i+com_mean for i in range(n_snapshots)]
     plt.yticks(ticks=yticks, labels=range(1, n_snapshots+1))
     plt.ylim([yticks[-1] + sep, yticks[0] - sep])
+
+    # Time
+    sim_options = SimulationOptions.load(clargs.sim_config)
+    time_interval = (iterations[1] - iterations[0])*sim_options.timestep
+    rel_pos = 0.5
+    plt.text(
+        x=0.1*sep,
+        y=(1-rel_pos)*yticks[-2]+rel_pos*yticks[-1],
+        s=f'{round(1e3*time_interval)} [ms]',
+        va='center',
+        ha='left',
+        fontsize=8,
+        color='k',
+        animated=False,
+    )
+    arrow = FancyArrowPatch(
+        posA=[0.15*sep, yticks[-2]],
+        posB=[0.15*sep, yticks[-1]],
+        arrowstyle=ArrowStyle(
+            stylename='Fancy',
+            head_length=10,
+            head_width=5,
+            tail_width=1,
+        ),
+        connectionstyle=ConnectionStyle('Arc3', rad=0.2),
+        color='k',
+    )
+    axes.add_artist(arrow)
 
     # Final layout
     plt.xlabel('Distance [m]')
