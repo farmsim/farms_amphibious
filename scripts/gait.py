@@ -22,7 +22,6 @@ def argument_parser() -> ArgumentParser:
             ArgumentDefaultsHelpFormatter(prog, max_help_position=50)
         ),
     )
-
     parser.add_argument(
         '--sim_data',
         type=str,
@@ -72,7 +71,11 @@ def argument_parser() -> ArgumentParser:
         default=600,
         help='Output path',
     )
-
+    parser.add_argument(
+        '--use_links',
+        action='store_true',
+        help='Use links',
+    )
     return parser
 
 
@@ -91,14 +94,17 @@ def snapshot_links_positions(
         snapshot_i, iteration,
         links_sensors, indices,
         sep, mov, rot,
+        use_links=False,
 ):
     """Snapshot links positions"""
+    position_function = (
+        links_sensors.urdf_position
+        if use_links
+        else links_sensors.com_position
+    )
     pos_local = [
         transform(
-            point=links_sensors.urdf_position(  # pos_global
-                iteration=iteration,
-                link_i=link_i,
-            )[:2],
+            point=position_function(iteration=iteration, link_i=link_i)[:2],
             mov=mov,
             rot=rot,
         )
@@ -181,6 +187,7 @@ def main():
             snapshot_i=i, iteration=iteration, links_sensors=links_sensors,
             indices=range(convention.n_links_body()),
             sep=sep, mov=mov, rot=rot,
+            use_links=clargs.use_links,
         )
         head_pos_local.append(pos_plot[0])
 
@@ -204,6 +211,7 @@ def main():
                         )
                     ),
                     sep=sep, mov=mov, rot=rot,
+                    use_links=clargs.use_links,
                 )
 
                 # Plot contacts
