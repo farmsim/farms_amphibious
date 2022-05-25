@@ -2,15 +2,41 @@
 
 from typing import Dict, List, Tuple, Callable, Union
 import numpy as np
+
 from farms_core.model.control import AnimatController, ControlType
-from ..model.options import AmphibiousOptions
+
 from ..data.data import AmphibiousData
-from .drive import DescendingDrive
+from ..model.options import (
+    AmphibiousOptions,
+    AmphibiousControlOptions,
+)
+
+from .drive import DescendingDrive, drive_from_config
 from .network import NetworkODE
 from .position_muscle_cy import PositionMuscleCy
 from .position_phase_cy import PositionPhaseCy
 from .passive_cy import PassiveJointCy
 from .ekeberg import EkebergMuscleCy
+
+
+def get_amphibious_controller(animat_data, animat_options, sim_options):
+    """Controller from config"""
+    if isinstance(animat_options.control, AmphibiousControlOptions):
+        return AmphibiousController(
+            joints_names=animat_options.control.joints_names(),
+            animat_options=animat_options,
+            animat_data=animat_data,
+            drive=(
+                drive_from_config(
+                    filename=animat_options.control.drive_config,
+                    animat_data=animat_data,
+                    simulation_options=sim_options,
+                )
+                if animat_options.control.drive_config
+                else None
+            ),
+        )
+    raise Exception('Unknown control options type: {type(animat_options)}')
 
 
 class AmphibiousController(AnimatController):
