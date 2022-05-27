@@ -1,10 +1,10 @@
 """Amphibious data"""
 
 from typing import Dict
+
 import numpy as np
 
 from farms_core import pylog
-
 from farms_core.io.hdf5 import hdf5_to_dict
 from farms_core.array.array import to_array
 from farms_core.array.array_cy import IntegerArray1D, IntegerArray2D
@@ -13,6 +13,10 @@ from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions, ControlOptions
 from farms_core.simulation.options import SimulationOptions
 from farms_core.sensors.data import SensorsData
+
+from ..model.options import (
+    AmphibiousControlOptions,
+)
 
 from .data_cy import AmphibiousDataCy, ConnectivityCy, JointsControlArrayCy
 from .network import (
@@ -25,6 +29,16 @@ from .network import (
     ContactsConnectivity,
     XfrcConnectivity,
 )
+
+
+def get_amphibious_data(animat_options, simulation_options):
+    """Get amphibious_data"""
+    return (
+        AmphibiousData.from_options(
+            animat_options=animat_options,
+            simulation_options=simulation_options,
+        )
+    )
 
 
 class JointsControlArray(JointsControlArrayCy):
