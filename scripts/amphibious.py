@@ -23,12 +23,14 @@ from farms_amphibious.callbacks import SwimmingCallback
 
 ENGINE_BULLET = False
 try:
-    from farms_amphibious.bullet.animat import Amphibious
-    from farms_amphibious.bullet.simulation import AmphibiousPybulletSimulation
+    from farms_amphibious.bullet.simulation import (
+        AmphibiousPybulletSimulation,
+        pybullet_simulation_kwargs,
+    )
     ENGINE_BULLET = True
 except ImportError as err:
-    Amphibious = None
     AmphibiousPybulletSimulation = None
+    pybullet_simulation_kwargs = None
 
 
 def main():
@@ -81,14 +83,13 @@ def main():
         if animat_options.physics.drag or animat_options.physics.sph:
             options['callbacks'] += [SwimmingCallback(animat_options)]
     elif simulator == Simulator.PYBULLET:
-        options['animat'] = Amphibious(
-            options=animat_options,
-            controller=animat_controller,
-            timestep=sim_options.timestep,
-            iterations=sim_options.n_iterations,
-            units=sim_options.units,
+        options.update(
+            pybullet_simulation_kwargs(
+                animat_controller=animat_controller,
+                animat_options=animat_options,
+                sim_options=sim_options,
+            )
         )
-        options['sim_loader'] = AmphibiousPybulletSimulation
 
     # Simulation
     pylog.info('Creating simulation environment')

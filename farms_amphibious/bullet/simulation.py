@@ -21,7 +21,23 @@ from farms_bullet.swimming.drag import (
     SwimmingHandler,  # pylint: disable=no-name-in-module
 )
 
+from .animat import Amphibious
 from .interface import AmphibiousUserParameters
+from .simulation import AmphibiousPybulletSimulation
+
+
+def pybullet_simulation_kwargs(animat_controller, animat_options, sim_options):
+    """Simulation kwargs for Pybullet"""
+    options = {}
+    options['animat'] = Amphibious(
+        options=animat_options,
+        controller=animat_controller,
+        timestep=sim_options.timestep,
+        iterations=sim_options.n_iterations,
+        units=sim_options.units,
+    )
+    options['sim_loader'] = AmphibiousPybulletSimulation
+    return options
 
 
 def water_velocity_from_maps(position, water_maps):
