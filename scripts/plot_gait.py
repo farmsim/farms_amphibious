@@ -296,8 +296,8 @@ def main():
         pdf = PdfFileReader(pdf_file)
         res = [float(val) for val in pdf.getPage(0).mediaBox]
     pyobject2yaml(clargs.output_config, {
-        'velocity': velocity,
-        'box': res
+        'velocity': float(velocity),
+        'box': res,
     })
 
 
