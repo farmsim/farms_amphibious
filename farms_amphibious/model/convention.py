@@ -121,9 +121,8 @@ class AmphibiousConvention(Options):
 
     def body_osc_indices(self, joint_i):
         """Body oscillator indices"""
-        n_body_joints = self.n_joints_body
-        assert 0 <= joint_i < n_body_joints, (
-            f'Joint must be < {n_body_joints}, got {joint_i}'
+        assert 0 <= joint_i < self.n_joints_body, (
+            f'Joint must be < {self.n_joints_body}, got {joint_i}'
         )
         index = self.n_opbj()*joint_i
         return list(range(index, index + self.n_opbj()))
@@ -148,9 +147,8 @@ class AmphibiousConvention(Options):
 
     def bodyosc2name(self, joint_i, side=0):
         """body2name"""
-        n_body_joints = self.n_joints_body
-        assert 0 <= joint_i < n_body_joints, (
-            f'Joint must be < {n_body_joints}, got {joint_i}'
+        assert 0 <= joint_i < self.n_joints_body, (
+            f'Joint must be < {self.n_joints_body}, got {joint_i}'
         )
         if self.single_osc_body:
             assert side == 0, f'No oscillator side for joint {joint_i}'
@@ -240,6 +238,23 @@ class AmphibiousConvention(Options):
             else f'osc_leg_{leg_i}_{"R" if side_i else "L"}_{joint_i}_{side}'
         )
 
+    def jointindex2information(self, joint_i):
+        """Joint index information"""
+        information = {}
+        n_joints = self.n_joints()
+        assert 0 <= joint_i < n_joints, (
+            f'Index {joint_i} bigger than number of joints ({n_joints})'
+        )
+        information['body'] = joint_i < self.n_joints_body
+        if information['body']:
+            information['joint_i'] = joint_i
+        else:
+            index_i = joint_i - self.n_joints_body
+            information['joint_i'] = index_i % self.n_dof_legs
+            information['leg_i'] = index_i // (2*self.n_dof_legs)
+            information['side_i'] = index_i % 2
+        return information
+
     def oscindex2information(self, osc_i):
         """Oscillator index information"""
         information = {}
@@ -315,22 +330,26 @@ class AmphibiousConvention(Options):
 
     def bodyjoint2index(self, joint_i):
         """bodyjoint2index"""
-        n_body = self.n_joints_body
-        assert 0 <= joint_i < n_body, f'Body joint must be < {n_body}, got {joint_i}'
+        assert 0 <= joint_i < self.n_joints_body, (
+            f'Body joint must be < {self.n_joints_body}, got {joint_i}'
+        )
         return joint_i
 
     def legjoint2index(self, leg_i, side_i, joint_i):
         """legjoint2index"""
-        n_body_joints = self.n_joints_body
-        n_legs = self.n_legs
-        n_legs_dof = self.n_dof_legs
-        assert 0 <= leg_i < n_legs, f'Leg must be < {n_legs//2}, got {leg_i}'
-        assert 0 <= side_i < 2, f'Body side must be < 2, got {side_i}'
-        assert 0 <= joint_i < n_legs_dof, f'Joint must be < {n_legs_dof}, got {joint_i}'
+        assert 0 <= leg_i < self.n_legs, (
+            f'Leg must be < {self.n_legs//2}, got {leg_i}'
+        )
+        assert 0 <= side_i < 2, (
+            f'Body side must be < 2, got {side_i}'
+        )
+        assert 0 <= joint_i < self.n_dof_legs, (
+            f'Joint must be < {self.n_dof_legs}, got {joint_i}'
+        )
         return (
-            n_body_joints
-            + leg_i*2*n_legs_dof
-            + side_i*n_legs_dof
+            self.n_joints_body
+            + leg_i*2*self.n_dof_legs
+            + side_i*self.n_dof_legs
             + joint_i
         )
 
