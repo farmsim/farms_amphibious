@@ -16,6 +16,7 @@ from farms_core.sensors.data import SensorsData
 
 from ..model.options import (
     AmphibiousControlOptions,
+    KinematicsControlOptions,
 )
 
 from .data_cy import AmphibiousDataCy, ConnectivityCy, JointsControlArrayCy
@@ -34,7 +35,17 @@ from .network import (
 def get_amphibious_data(animat_options, simulation_options):
     """Get amphibious_data"""
     return (
-        AmphibiousData.from_options(
+        AmphibiousKinematicsData.from_options(
+            animat_options=animat_options,
+            simulation_options=simulation_options,
+        )
+        if isinstance(animat_options.control, KinematicsControlOptions)
+        else AmphibiousData.from_options(
+            animat_options=animat_options,
+            simulation_options=simulation_options,
+        )
+        if isinstance(animat_options.control, AmphibiousControlOptions)
+        else AnimatData.from_options(
             animat_options=animat_options,
             simulation_options=simulation_options,
         )
@@ -125,7 +136,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
             OscillatorNetworkState.from_initial_state(
                 initial_state=animat_options.state_init(),
                 n_iterations=simulation_options.n_iterations,
-                n_oscillators=animat_options.control.n_oscillators,
+                n_oscillators=animat_options.control.network.n_oscillators(),
             )
             if animat_options.control.network is not None
             else None
@@ -216,3 +227,22 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         plots.update(self.plot_sensors(times))
         plots['drives'] = self.network.drives.plot(times)
         return plots
+
+
+class AmphibiousKinematicsData(AnimatData):
+    """Amphibious data"""
+
+    @classmethod
+    def from_options(
+            cls,
+            animat_options: AnimatOptions,
+            simulation_options: SimulationOptions,
+    ):
+        """From animat and simulation options"""
+        return cls(
+            timestep=simulation_options.timestep,
+            sensors=SensorsData.from_options(
+                animat_options=animat_options,
+                simulation_options=simulation_options,
+            ),
+        )

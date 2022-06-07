@@ -1,16 +1,21 @@
 """Amphibious controller"""
 
+import os
 from typing import Dict, List, Tuple, Callable, Union
+
 import numpy as np
 
+from farms_core.model.options import ControlOptions
 from farms_core.model.control import AnimatController, ControlType
 
 from ..data.data import AmphibiousData
 from ..model.options import (
     AmphibiousOptions,
     AmphibiousControlOptions,
+    KinematicsControlOptions,
 )
 
+from .kinematics import KinematicsController
 from .drive import DescendingDrive, drive_from_config
 from .network import NetworkODE
 from .position_muscle_cy import PositionMuscleCy
@@ -21,20 +26,64 @@ from .ekeberg import EkebergMuscleCy
 
 def get_amphibious_controller(animat_data, animat_options, sim_options):
     """Controller from config"""
+    joints_names = animat_options.control.joints_names()
     if isinstance(animat_options.control, AmphibiousControlOptions):
         return AmphibiousController(
-            joints_names=animat_options.control.joints_names(),
+            joints_names=joints_names,
             animat_options=animat_options,
             animat_data=animat_data,
             drive=(
                 drive_from_config(
-                    filename=animat_options.control.drive_config,
+                    filename=animat_options.control.network.drive_config,
                     animat_data=animat_data,
                     simulation_options=sim_options,
                 )
-                if animat_options.control.drive_config
+                if animat_options.control.network is not None
+                and animat_options.control.network.drive_config
+                and 'drive_config' in animat_options.control.network
                 else None
             ),
+        )
+    joints_control_types = {
+        motor.joint_name: ControlType.from_string_list(
+            motor.control_types,
+        )
+        for motor in animat_options.control.motors
+    }
+    joints_names_per_type = AnimatController.joints_from_control_types(
+        joints_names=joints_names,
+        joints_control_types=joints_control_types,
+    )
+    max_torques = {
+        motor.joint_name: motor.limits_torque[1]
+        for motor in animat_options.control.motors
+    }
+    max_torques_per_type = AnimatController.max_torques_from_control_types(
+        joints_names=joints_names,
+        max_torques=max_torques,
+        joints_control_types=joints_control_types,
+    )
+    if isinstance(animat_options.control, KinematicsControlOptions):
+        assert os.path.isfile(animat_options.control.kinematics_file), (
+            f'{animat_options.control.kinematics_file} is not a file'
+        )
+        return KinematicsController(
+            joints_names=joints_names_per_type,
+            kinematics=np.genfromtxt(
+                animat_options.control.kinematics_file,
+                delimiter=',',
+            ),
+            sampling=animat_options.control.kinematics_sampling,
+            indices=animat_options.control.kinematics_indices,
+            time_index=animat_options.control.kinematics_time_index,
+            invert_motors=animat_options.control.kinematics_invert,
+            degrees=animat_options.control.kinematics_degrees,
+            timestep=sim_options.timestep,
+            n_iterations=sim_options.n_iterations,
+            animat_data=animat_data,
+            max_torques=max_torques_per_type,
+            init_time=animat_options.control.kinematics_start,
+            end_time=animat_options.control.kinematics_end,
         )
     raise Exception('Unknown control options type: {type(animat_options)}')
 
