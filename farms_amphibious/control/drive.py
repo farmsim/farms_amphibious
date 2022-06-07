@@ -141,6 +141,7 @@ class OrientationFollower(DescendingDrive):
             sample_time=timestep,
             output_limits=kwargs.pop('output_limits', (-0.2, 0.2)),
         )
+        self.value = 0
         assert not kwargs, kwargs
 
     def update_turn_command(self, pos):
@@ -153,7 +154,7 @@ class OrientationFollower(DescendingDrive):
         error = ((command - heading + np.pi) % (2*np.pi)) - np.pi
         return -(self.pid(command-error, dt=timestep))
 
-    def get_foward_control(self, iteration, indices):
+    def get_foward_control(self, iteration, timestep, indices):
         """Update drive"""
         # xfrc = np.array(
         #     self.animat_data.sensors.xfrc.forces(),
@@ -161,11 +162,13 @@ class OrientationFollower(DescendingDrive):
         # )[iteration, indices, :]
         # condition_xfrc = np.count_nonzero(xfrc) < int(0.85*len(indices)*3)
         contacts = np.array(
-            self.animat_data.sensors.contacts.array,
-            copy=False,
-        )[iteration, :, 2]
-        condition_contacts = np.sum(contacts) > 9.81*self.contact_threshold
-        return 2.5 if condition_contacts else 4.5
+            self.animat_data.sensors.contacts.totals()[iteration],
+            copy=True,
+        )
+        contacts_sum = np.sum(np.abs(contacts))
+        self.value += 10*timestep*(contacts_sum - self.value)
+        contacts_condition = self.value > 9.81*self.contact_threshold
+        return 2 if contacts_condition else 4
 
     def update(self, iteration, timestep, pos, heading):
         """Update drive"""
@@ -178,6 +181,7 @@ class OrientationFollower(DescendingDrive):
         )
         fwd = self.get_foward_control(
             iteration=iteration,
+            timestep=timestep,
             indices=self.indices,
         )
         self.set_left_drive(iteration=iteration, value=fwd+turn)
