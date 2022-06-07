@@ -3,8 +3,10 @@
 from typing import List
 from functools import partial
 from itertools import product
+
 import numpy as np
 from numpy.random import MT19937, RandomState, SeedSequence
+
 from farms_core.options import Options
 from farms_core.model.options import (
     AnimatOptions,
@@ -23,38 +25,64 @@ from .convention import AmphibiousConvention
 # pylint: disable=too-many-statements,too-many-instance-attributes
 
 
-def options_kwargs_keys():
-    """Options kwargs keys"""
+def options_kwargs_float_keys():
+    """Options kwargs float keys"""
     return [
-        'bodylimb_none',
-        'bodylimb_single',
-        'bodylimb_overlap',
-        'legs_freq_gain',
-        'legs_freq_bias',
-        'weight_osc_body_side',
-        'weight_osc_body_down',
+        'bodylimb_none', 'bodylimb_single', 'bodylimb_overlap',
+        'legs_freq_gain', 'legs_freq_bias',
+        'weight_osc_body_side', 'weight_osc_body_down',
         'weight_osc_legs_internal',
-        'weight_osc_legs_opposite',
-        'weight_osc_legs_following',
-        'weight_osc_legs2body',
-        'weight_osc_body2legs',
-        'weight_sens_stretch_freq_up',
+        'weight_osc_legs_opposite', 'weight_osc_legs_following',
+        'weight_osc_legs2body', 'weight_osc_body2legs',
         'weight_sens_stretch_freq_same',
-        'weight_sens_stretch_freq_down',
-        'weight_sens_stretch_amp_up',
+        'weight_sens_stretch_freq_up', 'weight_sens_stretch_freq_down',
         'weight_sens_stretch_amp_same',
-        'weight_sens_stretch_amp_down',
+        'weight_sens_stretch_amp_up', 'weight_sens_stretch_amp_down',
         'weight_sens_contact_body_freq_up',
         'weight_sens_contact_body_freq_down',
-        'weight_sens_contact_intralimb',
-        'weight_sens_contact_opposite',
-        'weight_sens_contact_following',
-        'weight_sens_contact_diagonal',
-        'weight_sens_xfrc_freq_up',
-        'weight_sens_xfrc_freq_down',
-        'weight_sens_xfrc_amp_up',
-        'weight_sens_xfrc_amp_down',
+        'weight_sens_contact_intralimb', 'weight_sens_contact_opposite',
+        'weight_sens_contact_following', 'weight_sens_contact_diagonal',
+        'weight_sens_xfrc_freq_up', 'weight_sens_xfrc_freq_down',
+        'weight_sens_xfrc_amp_up', 'weight_sens_xfrc_amp_down',
+        'kinematics_sampling', 'kinematics_start', 'kinematics_end',
     ]
+
+
+def options_kwargs_float_list_keys():
+    """Options kwargs float list keys"""
+    return ['drives_init']
+
+
+def options_kwargs_int_keys():
+    """Options kwargs int keys"""
+    return ['kinematics_time_index']
+
+
+def options_kwargs_int_list_keys():
+    """Options kwargs int list keys"""
+    return ['kinematics_indices']
+
+
+def options_kwargs_str_keys():
+    """Options kwargs string keys"""
+    return ['kinematics_file']
+
+
+def options_kwargs_bool_keys():
+    """Options kwargs bool keys"""
+    return ['inanimate', 'kinematics_invert', 'kinematics_degrees']
+
+
+def options_kwargs_all_keys():
+    """Options kwargs all keys"""
+    return (
+        options_kwargs_float_keys()
+        + options_kwargs_float_list_keys()
+        + options_kwargs_int_keys()
+        + options_kwargs_int_list_keys()
+        + options_kwargs_str_keys()
+        + options_kwargs_bool_keys()
+    )
 
 
 class AmphibiousOptions(AnimatOptions):
@@ -65,7 +93,11 @@ class AmphibiousOptions(AnimatOptions):
             sdf=sdf,
             spawn=SpawnOptions(**kwargs.pop('spawn')),
             morphology=AmphibiousMorphologyOptions(**kwargs.pop('morphology')),
-            control=AmphibiousControlOptions(**kwargs.pop('control')),
+            control=(
+                KinematicsControlOptions(**kwargs.pop('control'))
+                if 'kinematics_file' in kwargs['control']
+                else AmphibiousControlOptions(**kwargs.pop('control'))
+            ),
         )
         self.name = kwargs.pop('name')
         self.physics = AmphibiousPhysicsOptions(**kwargs.pop('physics'))
@@ -106,9 +138,13 @@ class AmphibiousOptions(AnimatOptions):
             AmphibiousPhysicsOptions.from_options(kwargs)
         )
         options['mujoco'] = kwargs.pop('mujoco', {})
+        kinematics_file = kwargs.get('kinematics_file', None)
         if 'control' in kwargs:
             options['control'] = kwargs.pop('control')
-        else:
+        elif kinematics_file is not None:  # Kinematics controller
+            options['control'] = KinematicsControlOptions.from_options(kwargs)
+            options['control'].defaults_from_convention(convention, kwargs)
+        else:  # Amphibious controller
             options['control'] = AmphibiousControlOptions.from_options(kwargs)
             options['control'].defaults_from_convention(convention, kwargs)
         options['show_xfrc'] = kwargs.pop('show_xfrc', False)
@@ -416,24 +452,17 @@ class AmphibiousControlOptions(ControlOptions):
                 for motor in kwargs.pop('motors')
             ],
         )
-        self.n_oscillators = kwargs.pop('n_oscillators')
-        self.drive_config = kwargs.pop('drive_config')
-        self.kinematics_file = kwargs.pop('kinematics_file')
-        self.manta_controller = kwargs.pop('manta_controller', False)
-        self.kinematics_sampling = kwargs.pop('kinematics_sampling')
-        network = kwargs.pop('network')
+        network_options = kwargs.pop('network', None)
         self.network = (
-            AmphibiousNetworkOptions(**network)
-            if network is not None
+            AmphibiousNetworkOptions(**network_options)
+            if network_options is not None
+            and 'oscillators' in network_options
             else None
         )
-        if not self.kinematics_file:
-            self.muscles = [
-                AmphibiousMuscleSetOptions(**muscle)
-                for muscle in kwargs.pop('muscles')
-            ]
-        else:
-            self.muscles = kwargs.pop('muscles', None)
+        self.muscles = [
+            AmphibiousMuscleSetOptions(**muscle)
+            for muscle in kwargs.pop('muscles')
+        ]
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
     @classmethod
@@ -446,16 +475,11 @@ class AmphibiousControlOptions(ControlOptions):
             ),
             'motors': kwargs.pop('motors', {}),
         })
-        options['n_oscillators'] = kwargs.pop('n_oscillators', None)
-        options['drive_config'] = kwargs.pop('drive_config', '')
-        options['kinematics_file'] = kwargs.pop('kinematics_file', '')
-        options['kinematics_sampling'] = kwargs.pop('kinematics_sampling', 0)
         options['network'] = kwargs.pop(
             'network',
             AmphibiousNetworkOptions.from_options(kwargs).to_dict()
         )
-        if not options['kinematics_file']:
-            options['muscles'] = kwargs.pop('muscles', [])
+        options['muscles'] = kwargs.pop('muscles', [])
         return cls(**options)
 
     def defaults_from_convention(self, convention, kwargs):
@@ -466,10 +490,6 @@ class AmphibiousControlOptions(ControlOptions):
         # Joints
         n_joints = convention.n_joints()
         offsets = [None]*n_joints
-
-        # Oscillators
-        if self.n_oscillators is None:
-            self.n_oscillators = convention.n_osc()
 
         # Turning body
         for joint_i in range(convention.n_joints_body):
@@ -488,11 +508,11 @@ class AmphibiousControlOptions(ControlOptions):
         # Turning legs
         legs_offsets_walking = kwargs.pop(
             'legs_offsets_walking',
-            [0, np.pi/32, 0, np.pi/8]
+            [0]*convention.n_dof_legs
         )
         legs_offsets_swimming = kwargs.pop(
             'legs_offsets_swimming',
-            [-np.pi/3, 0, 0, 0]
+            [0]*convention.n_dof_legs
         )
         leg_turn_gain = kwargs.pop(
             'leg_turn_gain',
@@ -506,7 +526,7 @@ class AmphibiousControlOptions(ControlOptions):
         )
         leg_joint_turn_gain = kwargs.pop(
             'leg_joint_turn_gain',
-            [0, 0, 0, 0, 0],
+            [0]*convention.n_dof_legs
         )
 
         # Augment parameters
@@ -669,54 +689,51 @@ class AmphibiousControlOptions(ControlOptions):
         ]
 
         # Muscles
-        if not self.kinematics_file:
-
-            # Muscles
-            if not self.muscles:
-                self.muscles = [
-                    AmphibiousMuscleSetOptions(
-                        joint_name=None,
-                        osc1=None,
-                        osc2=None,
-                        alpha=None,
-                        beta=None,
-                        gamma=None,
-                        delta=None,
-                        epsilon=None,
-                    )
-                    for joint_i in range(n_joints)
-                ]
-            default_alpha = kwargs.pop('muscle_alpha', 0)
-            default_beta = kwargs.pop('muscle_beta', 0)
-            default_gamma = kwargs.pop('muscle_gamma', 0)
-            default_delta = kwargs.pop('muscle_delta', 0)
-            default_epsilon = kwargs.pop('muscle_epsilon', 0)
-            for joint_i, muscle in enumerate(self.muscles):
-                if muscle.joint_name is None:
-                    muscle.joint_name = joints_names[joint_i]
-                if muscle.osc1 is None or muscle.osc2 is None:
-                    osc_idx = convention.osc_indices(joint_i)
-                    assert osc_idx[0] < len(self.network.oscillators), (
+        if not self.muscles:
+            self.muscles = [
+                AmphibiousMuscleSetOptions(
+                    joint_name=None,
+                    osc1=None,
+                    osc2=None,
+                    alpha=None,
+                    beta=None,
+                    gamma=None,
+                    delta=None,
+                    epsilon=None,
+                )
+                for joint_i in range(n_joints)
+            ]
+        default_alpha = kwargs.pop('muscle_alpha', 0)
+        default_beta = kwargs.pop('muscle_beta', 0)
+        default_gamma = kwargs.pop('muscle_gamma', 0)
+        default_delta = kwargs.pop('muscle_delta', 0)
+        default_epsilon = kwargs.pop('muscle_epsilon', 0)
+        for joint_i, muscle in enumerate(self.muscles):
+            if muscle.joint_name is None:
+                muscle.joint_name = joints_names[joint_i]
+            if muscle.osc1 is None or muscle.osc2 is None:
+                osc_idx = convention.osc_indices(joint_i)
+                assert osc_idx[0] < len(self.network.oscillators), (
+                    f'{joint_i}: '
+                    f'{osc_idx[0]} !< {len(self.network.oscillators)}'
+                )
+                muscle.osc1 = self.network.oscillators[osc_idx[0]].name
+                if len(osc_idx) > 1:
+                    assert osc_idx[1] < len(self.network.oscillators), (
                         f'{joint_i}: '
-                        f'{osc_idx[0]} !< {len(self.network.oscillators)}'
+                        f'{osc_idx[1]} !< {len(self.network.oscillators)}'
                     )
-                    muscle.osc1 = self.network.oscillators[osc_idx[0]].name
-                    if len(osc_idx) > 1:
-                        assert osc_idx[1] < len(self.network.oscillators), (
-                            f'{joint_i}: '
-                            f'{osc_idx[1]} !< {len(self.network.oscillators)}'
-                        )
-                        muscle.osc2 = self.network.oscillators[osc_idx[1]].name
-                if muscle.alpha is None:
-                    muscle.alpha = default_alpha
-                if muscle.beta is None:
-                    muscle.beta = default_beta
-                if muscle.gamma is None:
-                    muscle.gamma = default_gamma
-                if muscle.delta is None:
-                    muscle.delta = default_delta
-                if muscle.epsilon is None:
-                    muscle.epsilon = default_epsilon
+                    muscle.osc2 = self.network.oscillators[osc_idx[1]].name
+            if muscle.alpha is None:
+                muscle.alpha = default_alpha
+            if muscle.beta is None:
+                muscle.beta = default_beta
+            if muscle.gamma is None:
+                muscle.gamma = default_gamma
+            if muscle.delta is None:
+                muscle.delta = default_delta
+            if muscle.epsilon is None:
+                muscle.epsilon = default_epsilon
 
     def motors_offsets(self):
         """Motors offsets"""
@@ -735,6 +752,256 @@ class AmphibiousControlOptions(ControlOptions):
             motor.offsets.rate
             for motor in self.motors
             if motor.offsets is not None
+        ]
+
+    def motors_transform_gain(self):
+        """Motors gain amplitudes"""
+        return [motor.transform.gain for motor in self.motors]
+
+    def motors_transform_bias(self):
+        """Motors offset bias"""
+        return [motor.transform.bias for motor in self.motors]
+
+
+class KinematicsControlOptions(ControlOptions):
+    """Amphibious kinematics control options"""
+
+    def __init__(self, **kwargs):
+        super().__init__(
+            sensors=(AmphibiousSensorsOptions(**kwargs.pop('sensors'))),
+            motors=[
+                AmphibiousMotorOptions(**motor)
+                for motor in kwargs.pop('motors')
+            ],
+        )
+        self.kinematics_file = kwargs.pop('kinematics_file')
+        self.kinematics_sampling = kwargs.pop('kinematics_sampling')
+        self.kinematics_indices = kwargs.pop('kinematics_indices')
+        self.kinematics_time_index = kwargs.pop('kinematics_time_index')
+        self.kinematics_invert = kwargs.pop('kinematics_invert')
+        self.kinematics_degrees = kwargs.pop('kinematics_degrees')
+        self.kinematics_start = kwargs.pop('kinematics_start')
+        self.kinematics_end = kwargs.pop('kinematics_end')
+        assert not kwargs, f'Unknown kwargs: {kwargs}'
+
+    @classmethod
+    def options_from_kwargs(cls, kwargs):
+        """Options from kwargs"""
+        options = super(cls, cls).options_from_kwargs({
+            'sensors': kwargs.pop(
+                'sensors',
+                AmphibiousSensorsOptions.options_from_kwargs(kwargs),
+            ),
+            'motors': kwargs.pop('motors', {}),
+        })
+        options['kinematics_file'] = kwargs.pop('kinematics_file', '')
+        options['kinematics_sampling'] = kwargs.pop('kinematics_sampling', 0)
+        options['kinematics_indices'] = kwargs.pop('kinematics_indices', None)
+        options['kinematics_time_index'] = kwargs.pop('kinematics_time_index', None)
+        options['kinematics_degrees'] = kwargs.pop('kinematics_degrees', False)
+        options['kinematics_invert'] = kwargs.pop('kinematics_invert', False)
+        options['kinematics_start'] = kwargs.pop('kinematics_start', 0)
+        options['kinematics_end'] = kwargs.pop('kinematics_end', 0)
+        return cls(**options)
+
+    def defaults_from_convention(self, convention, kwargs):
+        """Defaults from convention"""
+        self.sensors.defaults_from_convention(convention, kwargs)
+
+        # Joints
+        n_joints = convention.n_joints()
+        offsets = [None]*n_joints
+
+        # Turning body
+        for joint_i in range(convention.n_joints_body):
+            for side_i in range(2):
+                offsets[convention.bodyjoint2index(joint_i=joint_i)] = (
+                    AmphibiousMotorOffsetOptions(
+                        gain=0,
+                        bias=0,
+                        low=1,
+                        high=5,
+                        saturation=0,
+                        rate=2,
+                    )
+                )
+
+        # Turning legs
+        legs_offsets_walking = kwargs.pop(
+            'legs_offsets_walking',
+            [0]*convention.n_dof_legs
+        )
+        legs_offsets_swimming = kwargs.pop(
+            'legs_offsets_swimming',
+            [0]*convention.n_dof_legs
+        )
+        leg_turn_gain = kwargs.pop(
+            'leg_turn_gain',
+            [0, 0]
+            if convention.n_legs == 4
+            else (-np.ones(convention.n_legs_pair())).tolist()
+        )
+        leg_side_turn_gain = kwargs.pop(
+            'leg_side_turn_gain',
+            [0, 0]
+        )
+        leg_joint_turn_gain = kwargs.pop(
+            'leg_joint_turn_gain',
+            [0, 0, 0, 0, 0],
+        )
+
+        # Augment parameters
+        repeat = partial(np.repeat, repeats=convention.n_legs_pair(), axis=0)
+        if np.ndim(legs_offsets_walking) == 1:
+            legs_offsets_walking = repeat([legs_offsets_walking]).tolist()
+        if np.ndim(legs_offsets_swimming) == 1:
+            legs_offsets_swimming = repeat([legs_offsets_swimming]).tolist()
+        if np.ndim(leg_side_turn_gain) == 1:
+            leg_side_turn_gain = repeat([leg_side_turn_gain]).tolist()
+        if np.ndim(leg_joint_turn_gain) == 1:
+            leg_joint_turn_gain = repeat([leg_joint_turn_gain]).tolist()
+
+        # Motors offsets for walking and swimming
+        for leg_i in range(convention.n_legs_pair()):
+            for side_i in range(2):
+                for joint_i in range(convention.n_dof_legs):
+                    offsets[convention.legjoint2index(
+                        leg_i=leg_i,
+                        side_i=side_i,
+                        joint_i=joint_i,
+                    )] = AmphibiousMotorOffsetOptions(
+                        gain=(
+                            leg_turn_gain[leg_i]
+                            * leg_side_turn_gain[leg_i][side_i]
+                            * leg_joint_turn_gain[leg_i][joint_i]
+                        ),
+                        bias=legs_offsets_walking[leg_i][joint_i],
+                        low=1,
+                        high=3,
+                        saturation=legs_offsets_swimming[leg_i][joint_i],
+                        rate=2,
+                    )
+
+        # Amphibious joints control
+        if not self.motors:
+            self.motors = [
+                AmphibiousMotorOptions(
+                    joint_name=None,
+                    control_types=[],
+                    limits_torque=None,
+                    equation=None,
+                    transform=AmphibiousMotorTransformOptions(
+                        gain=None,
+                        bias=None,
+                    ),
+                    offsets=AmphibiousMotorOffsetOptions(
+                        gain=None,
+                        bias=None,
+                        low=None,
+                        high=None,
+                        saturation=None,
+                        rate=None,
+                    ),
+                    passive=AmphibiousPassiveJointOptions(
+                        is_passive=False,
+                        stiffness_coefficient=0,
+                        damping_coefficient=0,
+                        friction_coefficient=0,
+                    ),
+                )
+                for joint in range(n_joints)
+            ]
+        joints_names = kwargs.pop(
+            'joints_control_names',
+            convention.joints_names,
+        )
+        transform_gain = kwargs.pop(
+            'transform_gain',
+            {joint_name: 1 for joint_name in joints_names},
+        )
+        transform_bias = kwargs.pop(
+            'transform_bias',
+            {joint_name: 0 for joint_name in joints_names},
+        )
+        default_max_torque = kwargs.pop('default_max_torque', np.inf)
+        max_torques = kwargs.pop(
+            'max_torques',
+            {joint_name: default_max_torque for joint_name in joints_names},
+        )
+        default_equation = kwargs.pop('default_equation', 'position')
+        equations = kwargs.pop(
+            'equations',
+            {
+                joint_name: (
+                    'phase'
+                    if convention.single_osc_body
+                    and joint_i < convention.n_joints_body
+                    or convention.single_osc_legs
+                    and joint_i >= convention.n_joints_body
+                    else default_equation
+                )
+                for joint_i, joint_name in enumerate(joints_names)
+            },
+        )
+        for motor_i, motor in enumerate(self.motors):
+
+            # Control
+            if motor.joint_name is None:
+                motor.joint_name = joints_names[motor_i]
+            if motor.equation is None:
+                motor.equation = equations[motor.joint_name]
+            if not motor.control_types:
+                motor.control_types = {
+                    'position': ['position'],
+                }[motor.equation]
+            if motor.limits_torque is None:
+                motor.limits_torque = [
+                    -max_torques[motor.joint_name],
+                    +max_torques[motor.joint_name],
+                ]
+
+            # Transform
+            if motor.transform.gain is None:
+                motor.transform.gain = transform_gain[motor.joint_name]
+            if motor.transform.bias is None:
+                motor.transform.bias = transform_bias[motor.joint_name]
+
+            # Offset
+            if motor.offsets.gain is None:
+                motor.offsets.gain = offsets[motor_i]['gain']
+            if motor.offsets.bias is None:
+                motor.offsets.bias = offsets[motor_i]['bias']
+            if motor.offsets.low is None:
+                motor.offsets.low = offsets[motor_i]['low']
+            if motor.offsets.high is None:
+                motor.offsets.high = offsets[motor_i]['high']
+            if motor.offsets.saturation is None:
+                motor.offsets.saturation = offsets[motor_i]['saturation']
+            if motor.offsets.rate is None:
+                motor.offsets.rate = offsets[motor_i]['rate']
+
+        # Passive
+        joints_passive = kwargs.pop('joints_passive', [])
+        self.sensors.joints += [name for name, *_ in joints_passive]
+        self.motors += [
+            AmphibiousMotorOptions(
+                joint_name=joint_name,
+                control_types=['velocity', 'torque'],
+                limits_torque=[-default_max_torque, default_max_torque],
+                equation='passive',
+                transform=AmphibiousMotorTransformOptions(
+                    gain=1,
+                    bias=0,
+                ),
+                offsets=None,
+                passive=AmphibiousPassiveJointOptions(
+                    is_passive=True,
+                    stiffness_coefficient=stiffness,
+                    damping_coefficient=damping,
+                    friction_coefficient=friction,
+                ),
+            )
+            for joint_name, stiffness, damping, friction in joints_passive
         ]
 
     def motors_transform_gain(self):
@@ -831,6 +1098,7 @@ class AmphibiousNetworkOptions(Options):
         super().__init__()
 
         # Drives
+        self.drive_config = kwargs.pop('drive_config')
         self.drives: List[AmphibiousDriveOptions] = [
             AmphibiousDriveOptions(**drive)
             for drive in kwargs.pop('drives')
@@ -846,11 +1114,11 @@ class AmphibiousNetworkOptions(Options):
 
         # Connections
         self.osc2osc = kwargs.pop('osc2osc', None)
-        self.drive2osc = kwargs.pop('drive2osc', None)
-        self.drive2joint = kwargs.pop('drive2joint', None)
         self.joint2osc = kwargs.pop('joint2osc', None)
         self.contact2osc = kwargs.pop('contact2osc', None)
         self.xfrc2osc = kwargs.pop('xfrc2osc', None)
+        self.drive2osc = kwargs.pop('drive2osc', None)
+        self.drive2joint = kwargs.pop('drive2joint', None)
 
         # Kwargs
         assert not kwargs, f'Unknown kwargs: {kwargs}'
@@ -860,6 +1128,7 @@ class AmphibiousNetworkOptions(Options):
         """From options"""
         options = {}
         options['drives'] = kwargs.pop('drives', [])
+        options['drive_config'] = kwargs.pop('drive_config', '')
         options['oscillators'] = kwargs.pop('oscillators', [])
         options['single_osc_body'] = kwargs.pop('single_osc_body', False)
         options['single_osc_legs'] = kwargs.pop('single_osc_legs', False)
@@ -877,7 +1146,7 @@ class AmphibiousNetworkOptions(Options):
         # Parameters
         legs_amplitudes = kwargs.pop(
             'legs_amplitudes',
-            [np.pi/4, np.pi/32, np.pi/4, np.pi/8]
+            [0]*convention.n_dof_legs,
         )
 
         # Augment parameters
@@ -894,7 +1163,7 @@ class AmphibiousNetworkOptions(Options):
                 )
                 for drive_i in range(2)
             ]
-        drives_init = kwargs.pop('drives_init', [2, 0])
+        drives_init = kwargs.pop('drives_init', [0, 0])
         for drive_i, drive in enumerate(self.drives):
             if drive.name is None:
                 drive.name = f'Drive_{drive_i}'
@@ -931,13 +1200,16 @@ class AmphibiousNetworkOptions(Options):
             'state_init',
             self.default_state_init(convention).tolist()
             if state_init_smart
-            # else 1e-1*np.pi*np.linspace(0, 1, convention.n_states()),
-            # else 1e-1*random_state.rand(convention.n_states()),
-            else 1e-1*random_state.rand(convention.n_states()),
+            else np.concatenate([
+                    # Phases
+                    2*np.pi*random_state.rand(convention.n_osc()),
+                    # Amplitudes
+                    np.zeros(convention.n_osc()),
+                    # Joints
+                    np.zeros(convention.n_joints()),
+            ]),
         )
-        # state_init[1:convention.n_joints()+1] = (
-        #     state_init[0:convention.n_joints()] + np.pi
-        # )
+        assert len(state_init) == convention.n_states()
         osc_frequencies = kwargs.pop(
             'osc_frequencies',
             self.default_osc_frequencies(convention, kwargs),
@@ -946,16 +1218,15 @@ class AmphibiousNetworkOptions(Options):
             'osc_amplitudes',
             self.default_osc_amplitudes(
                 convention,
-                body_walk_amplitude=kwargs.pop('body_walk_amplitude', 0.3),
-                body_osc_gain=kwargs.pop('body_osc_gain', 0.25),
-                body_osc_bias=kwargs.pop('body_osc_bias', 0.5),
+                body_walk_amplitude=kwargs.pop('body_walk_amplitude', 0),
+                body_osc_gain=kwargs.pop('body_osc_gain', 0),
+                body_osc_bias=kwargs.pop('body_osc_bias', 0),
                 legs_amplitudes=legs_amplitudes,
+                legs_osc_gain=kwargs.pop('legs_osc_gain', 0),
+                legs_osc_bias=kwargs.pop('legs_osc_bias', 0),
             )
         )
-        osc_rates = kwargs.pop(
-            'osc_rates',
-            self.default_osc_rates(convention),
-        )
+        osc_rates = kwargs.pop('osc_rates', self.default_osc_rates(convention))
         osc_modular_phases = kwargs.pop(
             'osc_modular_phases',
             self.default_osc_modular_phases(
@@ -1009,7 +1280,6 @@ class AmphibiousNetworkOptions(Options):
         bodylimb_single = kwargs.pop('bodylimb_single', False)
         bodylimb_overlap = kwargs.pop('bodylimb_overlap', True)
         if self.osc2osc is None:
-            pi2 = 0.5*np.pi
             # body_stand_shift = kwargs.pop('body_stand_shift', pi2)
             n_leg_pairs = convention.n_legs_pair()
             legs_splits = np.array_split(
@@ -1041,7 +1311,7 @@ class AmphibiousNetworkOptions(Options):
             repeat = partial(np.repeat, repeats=n_leg_pairs, axis=0)
             intralimb_phases = kwargs.pop(
                 'intralimb_phases',
-                [0, pi2, 0, pi2, 0],
+                [0]*convention.n_dof_legs,
             )
             if np.ndim(intralimb_phases) == 1:
                 intralimb_phases = repeat([intralimb_phases]).tolist()
@@ -1122,18 +1392,6 @@ class AmphibiousNetworkOptions(Options):
                     standing=standing,
                 )
             )
-        if self.drive2osc is None:
-            self.drive2osc = [
-                info['side']
-                if (info := convention.oscindex2information(osc_i))['body']
-                else info['side_i']
-                for osc_i, _ in enumerate(self.oscillators)
-            ]
-        if self.drive2joint is None:
-            self.drive2joint = [
-                [0, 1]
-                for _ in range(convention.n_joints())
-            ]
         if self.joint2osc is None:
             self.joint2osc = self.default_joint2osc(
                 convention,
@@ -1162,10 +1420,26 @@ class AmphibiousNetworkOptions(Options):
                 kwargs.pop('weight_sens_xfrc_amp_up', 0),
                 kwargs.pop('weight_sens_xfrc_amp_down', 0),
             )
+        if self.drive2osc is None:
+            self.drive2osc = [
+                info['side']  # Body
+                if (info := convention.oscindex2information(osc_i))['body']
+                else info['side_i']  # Limbs
+                for osc_i, _ in enumerate(self.oscillators)
+            ]
+        if self.drive2joint is None:
+            self.drive2joint = [
+                [0, 1]
+                for _ in range(convention.n_joints())
+            ]
 
     def drives_init(self):
         """Initial drives"""
         return [drive.initial_value for drive in self.drives]
+
+    def n_oscillators(self):
+        """Number of oscillators"""
+        return len(self.oscillators)
 
     def osc_names(self):
         """Oscillator names"""
@@ -1223,7 +1497,7 @@ class AmphibiousNetworkOptions(Options):
                     phases_init_body[joint_i]
                     + (0 if side_osc else np.pi)
                 )
-        phases_init_legs = [3*np.pi/2, 0, 3*np.pi/2, 0, 0]
+        phases_init_legs = [0]*convention.n_dof_legs
         for joint_i in range(convention.n_dof_legs):
             for leg_i in range(convention.n_legs_pair()):
                 for side_i in range(2):
@@ -1248,15 +1522,11 @@ class AmphibiousNetworkOptions(Options):
         frequencies = [None]*convention.n_osc()
 
         # Body
-        body_freq_gain = kwargs.pop('body_freq_gain', 2*np.pi*0.55)
-        body_freq_bias = kwargs.pop('body_freq_bias', 2*np.pi*0.0)
+        body_freq_gain = kwargs.pop('body_freq_gain', 0.0)
+        body_freq_bias = kwargs.pop('body_freq_bias', 0.0)
         for joint_i in range(convention.n_joints_body):
             for side in range(1 if convention.single_osc_body else 2):
                 frequencies[convention.bodyosc2index(joint_i, side=side)] = {
-                    # 'gain': 2*np.pi*0.2,
-                    # 'bias': 2*np.pi*0.3,
-                    # 'gain': 2*np.pi*0.55, # 1.65 - 2.75 [Hz]
-                    # 'bias': 2*np.pi*0.0,
                     'gain': body_freq_gain,
                     'bias': body_freq_bias,
                     'low': 1,
@@ -1265,8 +1535,8 @@ class AmphibiousNetworkOptions(Options):
                 }
 
         # legs
-        legs_freq_gain = kwargs.pop('legs_freq_gain', 2*np.pi*0.3)
-        legs_freq_bias = kwargs.pop('legs_freq_bias', 2*np.pi*0.3)
+        legs_freq_gain = kwargs.pop('legs_freq_gain', 0.0)
+        legs_freq_bias = kwargs.pop('legs_freq_bias', 0.0)
         for joint_i in range(convention.n_dof_legs):
             for leg_i in range(convention.n_legs_pair()):
                 for side_i in range(2):
@@ -1277,10 +1547,6 @@ class AmphibiousNetworkOptions(Options):
                             joint_i,
                             side=side,
                         )] = {
-                            # 'gain': 2*np.pi*0.2,
-                            # 'bias': 2*np.pi*0.0,
-                            # 'gain': 2*np.pi*0.3, # 0.6 - 1.2 [Hz]
-                            # 'bias': 2*np.pi*0.3,
                             'gain': legs_freq_gain,
                             'bias': legs_freq_bias,
                             'low': 1,
@@ -1297,6 +1563,8 @@ class AmphibiousNetworkOptions(Options):
             body_osc_gain,
             body_osc_bias,
             legs_amplitudes,
+            legs_osc_gain,
+            legs_osc_bias,
     ):
         """Walking parameters"""
         amplitudes = [None]*convention.n_osc()
@@ -1313,7 +1581,7 @@ class AmphibiousNetworkOptions(Options):
         # Legs ampltidudes
         for leg_i in range(convention.n_legs_pair()):
             for joint_i in range(convention.n_dof_legs):
-                amplitude = legs_amplitudes[leg_i][joint_i]
+                legs_amplitude = legs_amplitudes[leg_i][joint_i]
                 for side_i in range(2):
                     for side in range(1 if convention.single_osc_legs else 2):
                         amplitudes[convention.legosc2index(
@@ -1322,8 +1590,8 @@ class AmphibiousNetworkOptions(Options):
                             joint_i,
                             side=side,
                         )] = {
-                            'gain': 0.5*amplitude,
-                            'bias': 0,
+                            'gain': legs_osc_gain*legs_amplitude,
+                            'bias': legs_osc_bias*legs_amplitude,
                             'low': 1,
                             'high': 3,
                             'saturation': 0,
