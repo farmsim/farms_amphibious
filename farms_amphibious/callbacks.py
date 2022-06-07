@@ -6,6 +6,16 @@ from farms_mujoco.simulation.task import TaskCallback
 from .model.options import AmphibiousOptions
 
 
+def setup_callbacks(animat_options):
+    """Callbacks for amphibious simulation"""
+    callbacks = []
+    if animat_options.physics.drag or animat_options.physics.sph:
+        callbacks += [
+            SwimmingCallback(animat_options),
+        ]
+    return callbacks
+
+
 class SwimmingCallback(TaskCallback):
     """Swimming callback"""
 
