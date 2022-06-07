@@ -15,11 +15,18 @@ from farms_sim.simulation import (
     postprocessing_from_clargs,
 )
 
-from farms_amphibious.data.data import AmphibiousData
+from farms_amphibious.callbacks import setup_callbacks
 from farms_amphibious.model.options import AmphibiousOptions
-from farms_amphibious.control.amphibious import AmphibiousController
-from farms_amphibious.control.drive import drive_from_config
-from farms_amphibious.callbacks import SwimmingCallback
+from farms_amphibious.control.kinematics import KinematicsController
+from farms_amphibious.data.data import (
+    AmphibiousData,
+    AmphibiousKinematicsData,
+    get_amphibious_data,
+)
+from farms_amphibious.control.amphibious import (
+    AmphibiousController,
+    get_amphibious_controller,
+)
 
 ENGINE_BULLET = False
 try:
@@ -43,45 +50,33 @@ def main():
         animat_options,
         sim_options,
         arena_options,
+        simulator,
     ) = setup_from_clargs(animat_options_loader=AmphibiousOptions)
-    simulator = {
-        'MUJOCO': Simulator.MUJOCO,
-        'PYBULLET': Simulator.PYBULLET,
-    }[clargs.simulator]
 
     if simulator == Simulator.PYBULLET and not ENGINE_BULLET:
         raise ImportError('Pybullet or farms_bullet not installed')
 
     # Data
-    animat_data = AmphibiousData.from_options(
-        animat_options=animat_options,
-        simulation_options=sim_options,
+    animat_data: Union[AmphibiousData, AmphibiousKinematicsData] = (
+        get_amphibious_data(
+            animat_options=animat_options,
+            simulation_options=sim_options,
+        )
     )
 
     # Controller
-    animat_controller = AmphibiousController(
-        joints_names=animat_options.control.joints_names(),
-        animat_options=animat_options,
-        animat_data=animat_data,
-        drive=(
-            drive_from_config(
-                filename=animat_options.control.drive_config,
-                animat_data=animat_data,
-                simulation_options=sim_options,
-            )
-            if animat_options.control.drive_config
-            else None
-        ),
+    animat_controller: Union[AmphibiousController, KinematicsController] = (
+        get_amphibious_controller(
+            animat_data=animat_data,
+            animat_options=animat_options,
+            sim_options=sim_options,
+        )
     )
 
-    # Other options
+    # Additional engine-specific options
     options = {}
-
-    # Callbacks
     if simulator == Simulator.MUJOCO:
-        options['callbacks'] = []
-        if animat_options.physics.drag or animat_options.physics.sph:
-            options['callbacks'] += [SwimmingCallback(animat_options)]
+        options['callbacks'] = setup_callbacks(animat_options)
     elif simulator == Simulator.PYBULLET:
         options.update(
             pybullet_simulation_kwargs(
