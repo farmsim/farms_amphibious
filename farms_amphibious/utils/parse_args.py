@@ -5,8 +5,14 @@ import numpy as np
 from farms_core.simulation.parse_args import (
     config_argument_parser as farms_core_config_argument_parser,
 )
-from ..model.options import options_kwargs_keys
-
+from ..model.options import (
+    options_kwargs_float_keys,
+    options_kwargs_float_list_keys,
+    options_kwargs_int_keys,
+    options_kwargs_int_list_keys,
+    options_kwargs_str_keys,
+    options_kwargs_bool_keys,
+)
 
 def config_argument_parser() -> argparse.ArgumentParser:
     """Parse args"""
@@ -45,6 +51,22 @@ def config_argument_parser() -> argparse.ArgumentParser:
         metavar=('alpha', 'beta', 'gamma'),
         default=(0, 0, 0),
         help='Spawn orientation',
+    )
+    parser.add_argument(
+        '--velocity_lin',
+        nargs=3,
+        type=float,
+        metavar=('vx', 'vy', 'vz'),
+        default=(0, 0, 0),
+        help='Spawn linear velocity',
+    )
+    parser.add_argument(
+        '--velocity_ang',
+        nargs=3,
+        type=float,
+        metavar=('wx', 'wy', 'wz'),
+        default=(0, 0, 0),
+        help='Spawn angular velocity',
     )
     parser.add_argument(
         '--arena',
@@ -125,17 +147,9 @@ def config_argument_parser() -> argparse.ArgumentParser:
         help='Save data to farms_models_data',
     )
     parser.add_argument(
-        '--drives',
-        nargs=2,
-        type=float,
-        metavar=('forward', 'turn'),
-        default=(2, 0),
-        help='Animat descending drives',
-    )
-    parser.add_argument(
         '--drive_config',
         type=str,
-        default='',
+        default=None,
         help='Descending drive config',
     )
     parser.add_argument(
@@ -187,13 +201,6 @@ def config_argument_parser() -> argparse.ArgumentParser:
         default='FARMS',
         help='Spawn loader',
     )
-    for key in options_kwargs_keys():
-        parser.add_argument(
-            f'--{key}',
-            type=float,
-            default=None,
-            help=f'{key}',
-        )
     parser.add_argument(
         '--simulator',
         type=str,
@@ -201,6 +208,50 @@ def config_argument_parser() -> argparse.ArgumentParser:
         default='MUJOCO',
         help='Simulator',
     )
+    for key in options_kwargs_float_keys():
+        parser.add_argument(
+            f'--{key}',
+            type=float,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_float_list_keys():
+        parser.add_argument(
+            f'--{key}',
+            nargs='+',
+            type=float,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_int_keys():
+        parser.add_argument(
+            f'--{key}',
+            type=int,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_int_list_keys():
+        parser.add_argument(
+            f'--{key}',
+            nargs='+',
+            type=int,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_str_keys():
+        parser.add_argument(
+            f'--{key}',
+            type=str,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_bool_keys():
+        parser.add_argument(
+            f'--{key}',
+            type=bool,
+            default=None,
+            help=f'{key}',
+        )
     return parser
 
 
@@ -242,6 +293,11 @@ def parser_model_gen(description='Generate model'):
         type=str,
         default='',
         help='Original file',
+    )
+    parser.add_argument(
+        '--output_gen_config',
+        type=str,
+        help='Generation config output',
     )
     return parser
 
