@@ -17,16 +17,18 @@ from farms_sim.simulation import (
 
 from farms_amphibious.callbacks import setup_callbacks
 from farms_amphibious.model.options import AmphibiousOptions
-from farms_amphibious.control.kinematics import KinematicsController
 from farms_amphibious.data.data import (
     AmphibiousData,
     AmphibiousKinematicsData,
     get_amphibious_data,
 )
+from farms_amphibious.control.network import NetworkODE
+from farms_amphibious.control.kinematics import KinematicsController
 from farms_amphibious.control.amphibious import (
     AmphibiousController,
     get_amphibious_controller,
 )
+
 
 ENGINE_BULLET = False
 try:
@@ -64,10 +66,14 @@ def main():
         )
     )
 
+    # Network
+    animat_network = NetworkODE(animat_data)
+
     # Controller
     animat_controller: Union[AmphibiousController, KinematicsController] = (
         get_amphibious_controller(
             animat_data=animat_data,
+            animat_network=animat_network,
             animat_options=animat_options,
             sim_options=sim_options,
         )

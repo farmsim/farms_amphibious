@@ -1,23 +1,47 @@
 """Network"""
 
+from abc import ABC, abstractmethod
 from typing import Callable
+
 import numpy as np
 from scipy import integrate
 from scipy.integrate._ode import ode as ODE
-from ..data.data import AmphibiousData
+
+from farms_core.model.data import AnimatData
+
 from .ode import ode_oscillators_sparse
 
 
-class NetworkODE:
+class AnimatNetwork(ABC):
+    """Animat network"""
+
+    def __init__(self, data, n_iterations):
+        super().__init__()
+        self.data: AnimatData = data
+        self.n_iterations = n_iterations
+
+    @abstractmethod
+    def step(
+            self,
+            iteration: int,
+            time: float,
+            timestep: float,
+            **kwargs,
+    ):
+        """Step function called at each simulation iteration"""
+
+
+class NetworkODE(AnimatNetwork):
     """NetworkODE"""
 
     def __init__(self, data, **kwargs):
-        super().__init__()
+        state_array = data.state.array
+        super().__init__(
+            data=data,
+            n_iterations=np.shape(state_array)[0],
+        )
         self.dstate = np.zeros_like(data.state.array[0, :])
         self.ode: Callable = kwargs.pop('ode', ode_oscillators_sparse)
-        self.data: AmphibiousData = data
-        state_array = self.data.state.array
-        self.n_iterations: int = np.shape(state_array)[0]
         self.solver: ODE = integrate.ode(f=self.ode)
         self.solver.set_integrator('dopri5', nsteps=kwargs.pop('nsteps', 100))
         self.solver.set_initial_value(y=state_array[0, :], t=0.0)
