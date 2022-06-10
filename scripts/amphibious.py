@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run salamander simulation with bullet"""
+"""Run salamander simulation"""
 
 import time
 from typing import Union
