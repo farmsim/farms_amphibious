@@ -11,6 +11,7 @@ from farms_core.simulation.options import SimulationOptions
 from farms_sim.utils.parse_args import sim_argument_parser
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.control.network import NetworkODE
+from farms_amphibious.control.amphibious import get_amphibious_controller
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
 
@@ -32,10 +33,10 @@ def network_parse_args():
     return args
 
 
-def run_simulation(network, n_iterations, timestep):
+def run_simulation(controller, n_iterations, timestep):
     """Run simulation"""
     for iteration in range(n_iterations-1):
-        network.step(iteration, iteration*timestep, timestep)
+        controller.step(iteration, iteration*timestep, timestep)
 
 
 def analysis(data, times, morphology, **kwargs):
@@ -122,12 +123,20 @@ def main(clargs=None, filename='data.hdf5'):
     )
 
     # Animat network
-    network = NetworkODE(data=animat_data)
+    animat_network = NetworkODE(data=animat_data)
+
+    # Animat controller
+    animat_controller = get_amphibious_controller(
+        animat_data=animat_data,
+        animat_network=animat_network,
+        animat_options=animat_options,
+        sim_options=sim_options,
+    )
 
     # Run simulation
     profile(
         run_simulation,
-        network=network,
+        controller=animat_controller,
         n_iterations=sim_options.n_iterations,
         timestep=sim_options.timestep,
         profile_filename=clargs.profile,
@@ -138,11 +147,6 @@ def main(clargs=None, filename='data.hdf5'):
     pylog.debug('Saving data to %s', output_path)
     animat_data.to_file(filename=output_path)
     pylog.debug('Save complete')
-
-    # Load from file
-    pylog.debug('Loading data from %s', output_path)
-    data = AmphibiousData.from_file(filename=output_path)
-    pylog.debug('Load complete')
 
     # Post-processing
     analysis(
