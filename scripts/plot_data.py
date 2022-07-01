@@ -91,7 +91,7 @@ def main():
     )
 
     # Plot descending drive
-    if animat_options.control.drive_config:
+    if animat_options.control.network.drive_config:
         pos = np.array(animat_data.sensors.links.urdf_positions()[:, 0])
         drive = drive_from_config(
             filename=animat_options.control.drive_config,
