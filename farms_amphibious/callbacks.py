@@ -37,7 +37,7 @@ class SwimmingCallback(TaskCallback):
         """Step hydrodynamics"""
         self._handler.step(task.iteration)
         # physics.data.xfrc_applied[:, :] = 0  # Reset all forces
-        indices = task.maps['sensors']['data2xfrc2']
+        indices = task.maps['sensors']['data2xfrc']
         physics.data.xfrc_applied[indices, :] = (
             task.data.sensors.xfrc.array[
                 task.iteration, :,
