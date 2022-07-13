@@ -11,7 +11,7 @@ from farms_mujoco.simulation.simulation import Simulation as MuJoCoSimulation
 from farms_sim.utils.parse_args import sim_parse_args
 from farms_sim.simulation import (
     setup_from_clargs,
-    simulation,
+    run_simulation,
     postprocessing_from_clargs,
 )
 
@@ -28,7 +28,6 @@ from farms_amphibious.control.amphibious import (
     AmphibiousController,
     get_amphibious_controller,
 )
-
 
 ENGINE_BULLET = False
 try:
@@ -67,15 +66,19 @@ def main():
     )
 
     # Network
-    animat_network = NetworkODE(animat_data)
+    if isinstance(animat_data, AmphibiousData):
+        animat_network = NetworkODE(animat_data, timestep=sim_options.timestep)
+        controller_args = {'animat_network': animat_network}
+    else:
+        controller_args = {}
 
     # Controller
     animat_controller: Union[AmphibiousController, KinematicsController] = (
         get_amphibious_controller(
             animat_data=animat_data,
-            animat_network=animat_network,
             animat_options=animat_options,
             sim_options=sim_options,
+            **controller_args,
         )
     )
 
@@ -94,7 +97,7 @@ def main():
 
     # Simulation
     pylog.info('Creating simulation environment')
-    sim: Union[MuJoCoSimulation, AmphibiousPybulletSimulation] = simulation(
+    sim: Union[MuJoCoSimulation, AmphibiousPybulletSimulation] = run_simulation(
         animat_data=animat_data,
         animat_options=animat_options,
         animat_controller=animat_controller,
