@@ -359,7 +359,7 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
         morphology = cls(**options)
         if kwargs.pop('use_self_collisions', False):
             convention = AmphibiousConvention.from_morphology(morphology)
-            morphology.self_collisions = [
+            morphology.self_collisions += [
                 # Body-body collisions
                 [
                     convention.bodylink2name(body0),
@@ -367,7 +367,7 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                 ]
                 for body0 in range(options['n_joints_body']+1)
                 for body1 in range(options['n_joints_body']+1)
-                if abs(body1 - body0) > 3  # Avoid neighbouring collisions
+                if abs(body1 - body0) > 2  # Avoid neighbouring collisions
             ] + [
                 # Body-leg collisions
                 [
@@ -394,6 +394,15 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             ]
             for links in morphology.self_collisions:
                 assert links[0] != links[1], f'Collision to self: {links}'
+        collisions_list = kwargs.pop('collisions_list', [])
+        if collisions_list:
+            morphology.self_collisions += [
+                [
+                    collisions_list[2*i+0],
+                    collisions_list[2*i+1],
+                ]
+                for i in range(len(collisions_list)//2)
+            ]
         return morphology
 
     def n_joints_legs(self):
