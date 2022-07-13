@@ -24,6 +24,7 @@ cdef class PositionPhaseCy(JointsControlCy):
 
     cpdef void step(self, unsigned int iteration):
         """Step"""
+        cdef double pos, dif
         cdef unsigned int joint_i, joint_data_i, osc_i
         cdef DTYPEv1 offsets = self.state.offsets(iteration)
         cdef DTYPEv1 phases = self.state.phases(iteration)
@@ -34,22 +35,20 @@ cdef class PositionPhaseCy(JointsControlCy):
 
             # Data
             joint_data_i = self.indices[joint_i]
+            pos = self.joints_data.array[iteration, joint_data_i, JOINT_POSITION]
             osc_i = self.osc_indices[0][joint_data_i]
-
             assert osc_i < len(phases)
 
-            # Swimming mode
-            if amplitudes[osc_i] < self.threshold:
-                self.joints_data.array[iteration, joint_data_i, JOINT_CMD_POSITION] = (
-                    self.transform_gain[joint_data_i]*(
-                        # phases[osc_i] + offsets[joint_data_i]
-                        round((phases[osc_i] - self.offset)/(2*M_PI))*(2*M_PI) + self.offset
-                    ) + self.transform_bias[joint_data_i]
-                )
-            else:
-                # Position outputs
-                self.joints_data.array[iteration, joint_data_i, JOINT_CMD_POSITION] = (
-                    self.transform_gain[joint_data_i]*(
-                        phases[osc_i] + offsets[joint_data_i]
-                    ) + self.transform_bias[joint_data_i]
-                )
+            if amplitudes[osc_i] < self.threshold:  # Swimming
+                dif = (M_PI - pos) % (2*M_PI) - M_PI
+                if dif < - M_PI:
+                    dif += 2*M_PI
+            else:  # Walking
+                dif = (phases[osc_i] - pos + M_PI) % (2*M_PI) - M_PI
+                if dif < - M_PI:
+                    dif += 2*M_PI
+            self.joints_data.array[iteration, joint_data_i, JOINT_CMD_POSITION] = (
+                self.transform_gain[joint_data_i]*(
+                    dif + pos + offsets[joint_data_i]
+                ) + self.transform_bias[joint_data_i]
+            )
