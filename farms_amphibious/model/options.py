@@ -208,7 +208,9 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             feet_friction += [feet_friction[0]]*(
                 convention.n_legs_pair() - len(feet_friction)
             )
-        feet_links = kwargs.pop('feet_links', convention.feet_links_names())
+        feet_links = kwargs.pop('feet_links', None)
+        if feet_links is None:
+            feet_links = convention.feet_links_names()
         links_friction_lateral = kwargs.pop(
             'links_friction_lateral',
             [
@@ -1073,22 +1075,12 @@ class AmphibiousSensorsOptions(SensorsOptions):
 
     def defaults_from_convention(self, convention, kwargs):
         """Defaults from convention"""
-        self.links = kwargs.pop(
-            'sensors_links',
-            convention.links_names
-        )
-        self.joints = kwargs.pop(
-            'sensors_joints',
-            convention.joints_names
-        )
-        self.contacts = kwargs.pop(
-            'sensors_contacts',
-            convention.feet_links_names()
-        )
-        self.xfrc = kwargs.pop(
-            'sensors_xfrc',
-            convention.links_names
-        )
+        self.links = kwargs.pop('sensors_links', convention.links_names)
+        self.joints = kwargs.pop('sensors_joints', convention.joints_names)
+        self.contacts = kwargs.pop('sensors_contacts', None)
+        self.xfrc = kwargs.pop('sensors_xfrc', convention.links_names)
+        if self.contacts is None:
+            self.contacts = convention.feet_links_names()
 
 
 class AmphibiousNetworkOptions(Options):
