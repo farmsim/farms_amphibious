@@ -6,7 +6,7 @@ from typing import Dict, List, Tuple, Callable, Union
 import numpy as np
 
 from farms_core.model.data import AnimatData
-from farms_core.model.options import AnimatOptions, ControlOptions
+from farms_core.model.options import AnimatOptions
 from farms_core.model.control import AnimatController, ControlType
 from farms_core.simulation.options import SimulationOptions
 
@@ -28,9 +28,9 @@ from .ekeberg import EkebergMuscleCy
 
 def get_amphibious_controller(
         animat_data: AnimatData,
-        animat_network: AnimatNetwork,
         animat_options: AnimatOptions,
         sim_options: SimulationOptions,
+        **kwargs,
 ):
     """Controller from config"""
     joints_names = animat_options.control.joints_names()
@@ -39,7 +39,6 @@ def get_amphibious_controller(
             joints_names=joints_names,
             animat_options=animat_options,
             animat_data=animat_data,
-            animat_network=animat_network,
             drive=(
                 drive_from_config(
                     filename=animat_options.control.network.drive_config,
@@ -51,6 +50,7 @@ def get_amphibious_controller(
                 and 'drive_config' in animat_options.control.network
                 else None
             ),
+            **kwargs,
         )
     joints_control_types = {
         motor.joint_name: ControlType.from_string_list(
@@ -92,6 +92,7 @@ def get_amphibious_controller(
             max_torques=max_torques_per_type,
             init_time=animat_options.control.kinematics_start,
             end_time=animat_options.control.kinematics_end,
+            **kwargs,
         )
     raise Exception('Unknown control options type: {type(animat_options)}')
 
@@ -398,7 +399,6 @@ class AmphibiousController(JointMuscleController):
             animat_data=animat_data,
             animat_network=animat_network,
         )
-        # self.network: NetworkODE = NetworkODE(animat_data)
         self.drive: Union[DescendingDrive, None] = drive
 
         # Position control
