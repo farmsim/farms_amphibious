@@ -513,6 +513,9 @@ class AmphibiousControlOptions(ControlOptions):
         n_joints = convention.n_joints()
         offsets = [None]*n_joints
 
+        # Motor gains
+        motor_gains = kwargs.pop('motor_gains', [[0]]*n_joints)
+
         # Turning body
         for joint_i in range(convention.n_joints_body):
             for side_i in range(2):
@@ -590,6 +593,7 @@ class AmphibiousControlOptions(ControlOptions):
                     joint_name=None,
                     control_types=[],
                     limits_torque=None,
+                    gains=None,
                     equation=None,
                     transform=AmphibiousMotorTransformOptions(
                         gain=None,
@@ -665,6 +669,8 @@ class AmphibiousControlOptions(ControlOptions):
                     -max_torques[motor.joint_name],
                     +max_torques[motor.joint_name],
                 ]
+            if motor.gains is None:
+                motor.gains = motor_gains[motor_i]
 
             # Transform
             if motor.transform.gain is None:
@@ -694,6 +700,7 @@ class AmphibiousControlOptions(ControlOptions):
                 joint_name=joint_name,
                 control_types=['velocity', 'torque'],
                 limits_torque=[-default_max_torque, default_max_torque],
+                gains=None,
                 equation='passive',
                 transform=AmphibiousMotorTransformOptions(
                     gain=1,
@@ -834,6 +841,9 @@ class KinematicsControlOptions(ControlOptions):
         n_joints = convention.n_joints()
         offsets = [None]*n_joints
 
+        # Motor gains
+        motor_gains = kwargs.pop('motor_gains', [[0]]*n_joints)
+
         # Turning body
         for joint_i in range(convention.n_joints_body):
             for side_i in range(2):
@@ -851,25 +861,25 @@ class KinematicsControlOptions(ControlOptions):
         # Turning legs
         legs_offsets_walking = kwargs.pop(
             'legs_offsets_walking',
-            [0]*convention.n_dof_legs
+            [0]*convention.n_dof_legs,
         )
         legs_offsets_swimming = kwargs.pop(
             'legs_offsets_swimming',
-            [0]*convention.n_dof_legs
+            [0]*convention.n_dof_legs,
         )
         leg_turn_gain = kwargs.pop(
             'leg_turn_gain',
             [0, 0]
             if convention.n_legs == 4
-            else (-np.ones(convention.n_legs_pair())).tolist()
+            else (-np.ones(convention.n_legs_pair())).tolist(),
         )
         leg_side_turn_gain = kwargs.pop(
             'leg_side_turn_gain',
-            [0, 0]
+            [0, 0],
         )
         leg_joint_turn_gain = kwargs.pop(
             'leg_joint_turn_gain',
-            [0, 0, 0, 0, 0],
+            [0]*convention.n_dof_legs,
         )
 
         # Augment parameters
@@ -911,6 +921,7 @@ class KinematicsControlOptions(ControlOptions):
                     joint_name=None,
                     control_types=[],
                     limits_torque=None,
+                    gains=None,
                     equation=None,
                     transform=AmphibiousMotorTransformOptions(
                         gain=None,
@@ -981,6 +992,8 @@ class KinematicsControlOptions(ControlOptions):
                     -max_torques[motor.joint_name],
                     +max_torques[motor.joint_name],
                 ]
+            if motor.gains is None:
+                motor.gains = motor_gains[motor_i]
 
             # Transform
             if motor.transform.gain is None:
@@ -1043,6 +1056,7 @@ class AmphibiousMotorOptions(MotorOptions):
             joint_name=kwargs.pop('joint_name'),
             control_types=kwargs.pop('control_types'),
             limits_torque=kwargs.pop('limits_torque'),
+            gains=kwargs.pop('gains'),
         )
         self.equation: str = kwargs.pop('equation')
         transform = kwargs.pop('transform')
