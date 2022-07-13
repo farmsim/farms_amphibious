@@ -324,6 +324,17 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             [0 for name in joints_names]
         )
         max_velocity = kwargs.pop('max_velocity', np.inf)
+        if 'joints' not in kwargs:
+            assert all(len(element) == len(joints_names) for element in (
+                joints_positions,
+                joints_velocities,
+                joints_damping,
+            )), (
+                'Not all same size:'
+                f' position: {len(joints_positions)},'
+                f' velocity: {len(joints_velocities)},'
+                f' damping: {len(joints_damping)}'
+            )
         options['joints'] = kwargs.pop(
             'joints',
             [
