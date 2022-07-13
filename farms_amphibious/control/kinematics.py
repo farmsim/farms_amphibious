@@ -24,21 +24,21 @@ def kinematics_interpolation(
         if time_vector is not None
         else np.arange(0, data_duration, sampling)
     )
-    interp_xn = np.arange(0, simulation_duration, timestep)
+    times = np.arange(0, simulation_duration, timestep)
     assert data_duration >= simulation_duration, (
         f'Data {data_duration} < {simulation_duration} Sim'
     )
     assert len(interp_x) == kinematics.shape[0], (
         f'{len(interp_x)} != {kinematics.shape[0]} (shape={kinematics.shape})'
     )
-    assert interp_x[-1] >= interp_xn[-1], (
-        f'Data[-1] {interp_x[-1]} < {interp_xn[-1]} Sim[-1]'
+    assert interp_x[-1] >= times[-1], (
+        f'Data[-1] {interp_x[-1]} < {times[-1]} Sim[-1]'
     )
     return interp1d(
         interp_x,
         kinematics,
         axis=0
-    )(interp_xn)
+    )(times)
 
 
 class KinematicsController(AnimatController):
