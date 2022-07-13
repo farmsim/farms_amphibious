@@ -213,6 +213,8 @@ class NetworkFigure:
         self.oscillators_texts = None
         self.drives = None
         self.drives_texts = None
+        self.joint_sensors = None
+        self.joint_sensor_texts = None
         self.contact_sensors = None
         self.contact_sensor_texts = None
         self.xfrc_sensors = None
@@ -225,13 +227,15 @@ class NetworkFigure:
         self.n_iterations = np.shape(self.data.sensors.links.array)[0]
         self.interval = 25
         self.n_frames = round(self.n_iterations*self.timestep / (1e-3*self.interval))
-        self.network = NetworkODE(self.data)
+        self.network = NetworkODE(self.data, timestep=self.timestep)
         self.cmap_phases = plt.get_cmap('Greens')
         self.cmap_drives = plt.get_cmap('turbo')
         self.cmap_drive_max = 6
+        self.cmap_joints = plt.get_cmap('BrBG')
+        self.cmap_joint_max = 0.5*np.pi
         self.cmap_contacts = plt.get_cmap('Oranges')
         self.cmap_contact_max = 2e-1
-        self.cmap_xfrc = plt.get_cmap('Reds')
+        self.cmap_xfrc = plt.get_cmap('Blues')
         self.cmap_xfrc_max = 2e-2
 
     def animate(self, convention, **kwargs):
@@ -281,6 +285,17 @@ class NetworkFigure:
         cbar.ax.set_ylabel('Drives', rotation=270)
         cbar.ax.get_yaxis().labelpad = -30
 
+        # Joints
+        cax = divider.append_axes('right', size=size, pad=pad)
+        cbar = create_colorbar(
+            self.axes,
+            cmap=self.cmap_joints,
+            vmin=-self.cmap_joint_max, vmax=self.cmap_joint_max,
+            cax=cax,
+        )
+        cbar.ax.set_ylabel('Joints position [rad]', rotation=270)
+        cbar.ax.get_yaxis().labelpad = -35
+
         # Contacts
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
@@ -321,6 +336,8 @@ class NetworkFigure:
             + self.oscillators_texts
             + self.drives
             + self.drives_texts
+            + self.joint_sensors
+            + self.joint_sensor_texts
             + self.contact_sensors
             + self.contact_sensor_texts
             + self.xfrc_sensors
@@ -354,6 +371,16 @@ class NetworkFigure:
                 a_max=self.cmap_drive_max,
             )
             drive.set_facecolor(self.cmap_drives(value/self.cmap_drive_max))
+
+        # Joints sensors
+        joints = self.data.sensors.joints
+        for joint_i, joint in enumerate(self.joint_sensors):
+            value = np.clip(
+                a=np.linalg.norm(joints.position(iteration, joint_i)),
+                a_min=0,
+                a_max=self.cmap_joint_max,
+            )
+            joint.set_facecolor(self.cmap_joints(value/self.cmap_joint_max))
 
         # Contacts sensors
         contacts = self.data.sensors.contacts
@@ -395,6 +422,7 @@ class NetworkFigure:
         leg_x_offset = kwargs.pop('leg_x_offset', 1 if is_large else 3)
         leg_y_offset = kwargs.pop('leg_y_offset', 5 if is_large else 3)
         leg_y_space = kwargs.pop('leg_y_space', 4 if is_large else 1)
+        joint_y_space = kwargs.pop('joint_y_space', 2 if is_large else 1)
         contact_y_space = kwargs.pop('contact_y_space', 2 if is_large else 1)
         radius = kwargs.pop('radius', 0.5 if is_large else 0.3)
         margin_x = kwargs.pop('margin_x', 4.5)
@@ -533,6 +561,57 @@ class NetworkFigure:
             weights=[],
         )
 
+        # Joints
+        joints_positions = np.array(
+            [
+                [-(2*osc_x), 0]
+                for osc_x in range(convention.n_joints_body)
+            ] + [
+                [
+                    -(leg_x+joint_y+leg_x_offset),
+                    -(leg_y_offset+leg_y_space*joint_y)*side_x,
+                ]
+                for leg_x in leg_pos
+                for side_x in [-1, 1]
+                for joint_y in np.arange(convention.n_dof_legs)
+            ]
+        )
+        joint_conn_cond = kwargs.pop(
+            'joint_conn_cond',
+            lambda osc0, osc1: True
+        )
+        connections = np.array([
+            [connection[0], connection[1], weight]
+            for connection, weight in zip(
+                self.data.network.joints2osc_map.connections.array,
+                self.data.network.joints2osc_map.weights.array,
+            )
+            if joint_conn_cond(connection[0], connection[1])
+        ]) if self.data.network.joints2osc_map.connections.array else np.empty(0)
+        options = {}
+        use_weights = use_colorbar and kwargs.pop('joints_weights', False)
+        if use_weights:
+            if connections.any():
+                options['weights'] = connections[:, 2]
+                vmin = np.min(connections[:, 2])
+                vmax = np.max(connections[:, 2])
+            else:
+                options['weights'] = []
+                vmin, vmax = 0, 1
+        self.joint_sensors, self.joint_sensor_texts, joint2osc_map = draw_network(
+            source=joints_positions,
+            destination=oscillator_positions,
+            radius=0.7*radius,
+            connectivity=connections,
+            prefix='J',
+            rad=rads[1],
+            color_nodes='C7',
+            color_arrows=cmap if use_weights else None,
+            alpha=alpha,
+            show_text=show_text,
+            **options,
+        )
+
         # Contacts
         contacts_positions = np.array(
             [
@@ -545,7 +624,7 @@ class NetworkFigure:
                 for leg_x in leg_pos
                 for side_y in [1, -1]
             ] + [
-                [-(2*osc_x+1+0.25), 0]
+                [-(2*osc_x+1-0.3), 0]
                 for osc_x in range(-1, convention.n_joints_body)
             ]
         ) if animat_options.control.sensors.contacts else []
@@ -574,7 +653,7 @@ class NetworkFigure:
         self.contact_sensors, self.contact_sensor_texts, contact2osc_map = draw_network(
             source=contacts_positions,
             destination=oscillator_positions,
-            radius=0.8*radius,
+            radius=0.7*radius,
             connectivity=connections,
             prefix='C',
             rad=rads[1],
@@ -587,7 +666,7 @@ class NetworkFigure:
 
         # Xfrc
         xfrc_positions = np.array([
-            [-(2*osc_x+1-0.25), 0]
+            [-(2*osc_x+1+0.3), 0]
             for osc_x in range(-1, convention.n_joints_body)
         ])
         xfrc_conn_cond = kwargs.pop(
@@ -630,7 +709,7 @@ class NetworkFigure:
         self.xfrc_sensors, self.xfrc_sensor_texts, xfrc2osc_map = draw_network(
             source=xfrc_positions,
             destination=oscillator_positions,
-            radius=0.8*radius,
+            radius=0.7*radius,
             connectivity=[
                 connection
                 for connection in self.data.network.xfrc2osc_map.connections.array
@@ -657,10 +736,12 @@ class NetworkFigure:
         [
             show_oscillators,
             show_drives,
+            show_joints,
             show_contacts,
             show_xfrc,
             show_oscillators_connectivity,
             show_drives_connectivity,
+            show_joints_connectivity,
             show_contacts_connectivity,
             show_xfrc_connectivity,
         ] = [
@@ -668,10 +749,12 @@ class NetworkFigure:
             for key in [
                 'show_oscillators',
                 'show_drives',
+                'show_joints',
                 'show_contacts',
                 'show_xfrc',
                 'show_oscillators_connectivity',
                 'show_drives_connectivity',
+                'show_joints_connectivity',
                 'show_contacts_connectivity',
                 'show_xfrc_connectivity',
             ]
@@ -681,6 +764,9 @@ class NetworkFigure:
                 self.axes.add_artist(arrow)
         if show_drives_connectivity:
             for arrow in drive2osc_map:
+                self.axes.add_artist(arrow)
+        if show_joints_connectivity:
+            for arrow in joint2osc_map:
                 self.axes.add_artist(arrow)
         if show_contacts_connectivity:
             for arrow in contact2osc_map:
@@ -700,6 +786,14 @@ class NetworkFigure:
             for circle, text in zip(
                     self.drives,
                     self.drives_texts,
+            ):
+                self.axes.add_artist(circle)
+                if show_text:
+                    self.axes.add_artist(text)
+        if show_joints:
+            for circle, text in zip(
+                    self.joint_sensors,
+                    self.joint_sensor_texts,
             ):
                 self.axes.add_artist(circle)
                 if show_text:
