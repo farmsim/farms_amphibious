@@ -77,6 +77,7 @@ def main():
         step=simulation_options.timestep,
     )
     assert len(times) == simulation_options.n_iterations
+    times = times[:animat_data.sensors.links.array.shape[0]]
     plots_sim = animat_data.plot(times)
 
     # Plot connectivity
