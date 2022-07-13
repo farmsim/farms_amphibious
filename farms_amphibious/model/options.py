@@ -45,12 +45,13 @@ def options_kwargs_float_keys():
         'weight_sens_xfrc_freq_up', 'weight_sens_xfrc_freq_down',
         'weight_sens_xfrc_amp_up', 'weight_sens_xfrc_amp_down',
         'kinematics_sampling', 'kinematics_start', 'kinematics_end',
+        'muscle_alpha', 'muscle_beta', 'muscle_gamma', 'muscle_delta',
     ]
 
 
 def options_kwargs_float_list_keys():
     """Options kwargs float list keys"""
-    return ['drives_init']
+    return ['drives_init', 'solref']
 
 
 def options_kwargs_int_keys():
@@ -68,6 +69,11 @@ def options_kwargs_str_keys():
     return ['kinematics_file']
 
 
+def options_kwargs_str_list_keys():
+    """Options kwargs str list keys"""
+    return ['collisions_list']
+
+
 def options_kwargs_bool_keys():
     """Options kwargs bool keys"""
     return ['inanimate', 'kinematics_invert', 'kinematics_degrees']
@@ -81,6 +87,7 @@ def options_kwargs_all_keys():
         + options_kwargs_int_keys()
         + options_kwargs_int_list_keys()
         + options_kwargs_str_keys()
+        + options_kwargs_str_list_keys()
         + options_kwargs_bool_keys()
     )
 
@@ -138,6 +145,8 @@ class AmphibiousOptions(AnimatOptions):
             AmphibiousPhysicsOptions.from_options(kwargs)
         )
         options['mujoco'] = kwargs.pop('mujoco', {})
+        if 'solref' in kwargs:
+            options['mujoco']['solref'] = kwargs.pop('solref')
         kinematics_file = kwargs.get('kinematics_file', None)
         if 'control' in kwargs:
             options['control'] = kwargs.pop('control')

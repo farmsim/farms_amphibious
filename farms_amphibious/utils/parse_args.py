@@ -11,6 +11,7 @@ from ..model.options import (
     options_kwargs_int_keys,
     options_kwargs_int_list_keys,
     options_kwargs_str_keys,
+    options_kwargs_str_list_keys,
     options_kwargs_bool_keys,
 )
 
@@ -241,6 +242,14 @@ def config_argument_parser() -> argparse.ArgumentParser:
     for key in options_kwargs_str_keys():
         parser.add_argument(
             f'--{key}',
+            type=str,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_str_list_keys():
+        parser.add_argument(
+            f'--{key}',
+            nargs='+',
             type=str,
             default=None,
             help=f'{key}',
