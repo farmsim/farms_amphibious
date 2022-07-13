@@ -46,7 +46,8 @@ class AmphibiousConvention(Options):
         n_joints = self.n_joints()
         assert len(self.joints_names) == n_joints, (
             f'Provided {len(self.joints_names)} names for joints'
-            f' but there should be {n_joints}:'
+            f' but there should be {n_joints} '
+            f' (body: {self.n_joints_body} legs: {self.n_joints_legs()}):'
             f'\n{self.joints_names}'
         )
         assert not kwargs, kwargs
