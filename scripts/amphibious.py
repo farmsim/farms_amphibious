@@ -22,6 +22,7 @@ from farms_amphibious.data.data import (
     AmphibiousKinematicsData,
     get_amphibious_data,
 )
+
 from farms_amphibious.control.network import NetworkODE
 from farms_amphibious.control.kinematics import KinematicsController
 from farms_amphibious.control.amphibious import (

@@ -2060,7 +2060,7 @@ class AmphibiousNetworkOptions(Options):
                         joint_i=joint_i,
                         side=side_o,
                     ),
-                    'out': convention.bodylink2name(link_i=joint_i+1),
+                    'out': (convention.bodylink2name(link_i=joint_i+1), ''),
                     'type': 'REACTION2FREQ',
                     'weight': w_b_f_up,
                 })
@@ -2071,7 +2071,7 @@ class AmphibiousNetworkOptions(Options):
                         joint_i=joint_i,
                         side=side_o,
                     ),
-                    'out': convention.bodylink2name(link_i=joint_i),
+                    'out': (convention.bodylink2name(link_i=joint_i), ''),
                     'type': 'REACTION2FREQ',
                     'weight': w_b_f_down,
                 })
@@ -2091,10 +2091,10 @@ class AmphibiousNetworkOptions(Options):
                         joint_i=joint_i,
                         side=side_o
                     ),
-                    'out': convention.contactleglink2name(
+                    'out': (convention.contactleglink2name(
                         leg_i=sensor_leg_i,
                         side_i=sensor_side_i
-                    ),
+                    ), ''),
                     'type': 'REACTION2FREQ',
                     'weight': w_intralimb,
                 })
@@ -2107,10 +2107,10 @@ class AmphibiousNetworkOptions(Options):
                         joint_i=joint_i,
                         side=side_o
                     ),
-                    'out': convention.contactleglink2name(
+                    'out': (convention.contactleglink2name(
                         leg_i=sensor_leg_i,
                         side_i=sensor_side_i
-                    ),
+                    ), ''),
                     'type': 'REACTION2FREQ',
                     'weight': w_opposite,
                 })
@@ -2124,10 +2124,10 @@ class AmphibiousNetworkOptions(Options):
                             joint_i=joint_i,
                             side=side_o
                         ),
-                        'out': convention.contactleglink2name(
+                        'out': (convention.contactleglink2name(
                             leg_i=sensor_leg_i,
                             side_i=sensor_side_i
-                        ),
+                        ), ''),
                         'type': 'REACTION2FREQ',
                         'weight': w_following,
                     })
@@ -2139,10 +2139,10 @@ class AmphibiousNetworkOptions(Options):
                             joint_i=joint_i,
                             side=side_o
                         ),
-                        'out': convention.contactleglink2name(
+                        'out': (convention.contactleglink2name(
                             leg_i=sensor_leg_i,
                             side_i=sensor_side_i
-                        ),
+                        ), ''),
                         'type': 'REACTION2FREQ',
                         'weight': w_following,
                     })
@@ -2156,10 +2156,10 @@ class AmphibiousNetworkOptions(Options):
                             joint_i=joint_i,
                             side=side_o
                         ),
-                        'out': convention.contactleglink2name(
+                        'out': (convention.contactleglink2name(
                             leg_i=sensor_leg_i,
                             side_i=sensor_side_i
-                        ),
+                        ), ''),
                         'type': 'REACTION2FREQ',
                         'weight': w_diagonal,
                     })
@@ -2171,10 +2171,10 @@ class AmphibiousNetworkOptions(Options):
                             joint_i=joint_i,
                             side=side_o
                         ),
-                        'out': convention.contactleglink2name(
+                        'out': (convention.contactleglink2name(
                             leg_i=sensor_leg_i,
                             side_i=sensor_side_i
-                        ),
+                        ), ''),
                         'type': 'REACTION2FREQ',
                         'weight': w_diagonal,
                     })
