@@ -68,7 +68,7 @@ def main():
 
     # Network
     if isinstance(animat_data, AmphibiousData):
-        animat_network = NetworkODE(animat_data, timestep=sim_options.timestep)
+        animat_network = NetworkODE(animat_data, max_step=sim_options.timestep)
         controller_args = {'animat_network': animat_network}
     else:
         controller_args = {}

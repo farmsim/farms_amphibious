@@ -36,16 +36,12 @@ class NetworkODE(AnimatNetwork):
 
     def __init__(self, data, **kwargs):
         state_array = data.state.array
-        super().__init__(
-            data=data,
-            n_iterations=np.shape(state_array)[0],
-        )
+        super().__init__(data=data, n_iterations=np.shape(state_array)[0])
         self.dstate = np.zeros_like(data.state.array[0, :])
         self.ode: Callable = kwargs.pop('ode', ode_oscillators_sparse)
         self.solver: ODE = integrate.ode(f=self.ode)
-        self.solver.set_integrator('dopri5', nsteps=kwargs.pop('nsteps', 100))
+        self.solver.set_integrator('dopri5', **kwargs)
         self.solver.set_initial_value(y=state_array[0, :], t=0.0)
-        assert not kwargs, kwargs
 
     def copy_next_drive(self, iteration):
         """Set initial drive"""
