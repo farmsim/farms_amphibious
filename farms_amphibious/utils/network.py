@@ -227,7 +227,7 @@ class NetworkFigure:
         self.n_iterations = np.shape(self.data.sensors.links.array)[0]
         self.interval = 25
         self.n_frames = round(self.n_iterations*self.timestep / (1e-3*self.interval))
-        self.network = NetworkODE(self.data, timestep=self.timestep)
+        self.network = NetworkODE(self.data, max_step=self.timestep)
         self.cmap_phases = plt.get_cmap('Greens')
         self.cmap_drives = plt.get_cmap('turbo')
         self.cmap_drive_max = 6
