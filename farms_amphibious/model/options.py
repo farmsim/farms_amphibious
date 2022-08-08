@@ -1,6 +1,6 @@
 """Animat options"""
 
-from typing import List
+from typing import List, Dict, Union
 from functools import partial
 from itertools import product
 
@@ -17,6 +17,8 @@ from farms_core.model.options import (
     ControlOptions,
     MotorOptions,
     SensorsOptions,
+    WaterOptions,
+    ArenaOptions,
 )
 from .convention import AmphibiousConvention
 
@@ -79,8 +81,8 @@ def options_kwargs_bool_keys():
     return ['inanimate', 'kinematics_invert', 'kinematics_degrees']
 
 
-def options_kwargs_all_keys():
-    """Options kwargs all keys"""
+def options_kwargs_animat_keys():
+    """Options kwargs animat keys"""
     return (
         options_kwargs_float_keys()
         + options_kwargs_float_list_keys()
@@ -89,6 +91,37 @@ def options_kwargs_all_keys():
         + options_kwargs_str_keys()
         + options_kwargs_str_list_keys()
         + options_kwargs_bool_keys()
+    )
+
+
+def options_kwargs_sph_float_keys():
+    """Options kwargs SPH float keys"""
+    return [
+        'sph_log_freq',
+        'sph_spacing', 'sph_hdx',
+        'sph_density_solid', 'sph_rho_fluid', 'sph_depth',
+        'sph_multiplier_h', 'sph_multiplier_mass',
+        'sph_multiplier_volume', 'sph_multiplier_rad_s',
+        'sph_factor_solid', 'sph_co', 'sph_xsph_eps',
+        'sph_alpha', 'sph_beta', 'sph_gamma',
+    ]
+
+
+def options_kwargs_sph_keys():
+    """Options kwargs SPH keys"""
+    return options_kwargs_sph_float_keys()
+
+
+def options_kwargs_arena_keys():
+    """Options kwargs arena keys"""
+    return options_kwargs_sph_keys()
+
+
+def options_kwargs_all_keys():
+    """Options kwargs all keys"""
+    return (
+        options_kwargs_animat_keys()
+        + options_kwargs_arena_keys()
     )
 
 
@@ -2298,3 +2331,66 @@ class AmphibiousPassiveJointOptions(Options):
         self.damping_coefficient: float = kwargs.pop('damping_coefficient')
         self.friction_coefficient: float = kwargs.pop('friction_coefficient')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
+
+
+class AmphibiousWaterOptions(WaterOptions):
+    """Amphibious water options"""
+
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # Logging frequency
+        self.sph_log_freq: float = kwargs.pop('sph_log_freq', None)
+        # Particle spacing
+        self.sph_spacing: float = kwargs.pop('sph_spacing', None)
+        # Particle hdx
+        self.sph_hdx: float = kwargs.pop('sph_hdx', None)
+        # Solid particle spatial density factor
+        self.sph_factor_solid: float = kwargs.pop('sph_factor_solid', None)
+        # Solid particle mass density
+        self.sph_density_solid: float = kwargs.pop('sph_density_solid', None)
+        # Fluid density
+        self.sph_rho_fluid: float = kwargs.pop('sph_rho_fluid', None)
+        # Fluid alpha
+        self.sph_alpha: float = kwargs.pop('sph_alpha', None)
+        # Fluid beta
+        self.sph_beta: float = kwargs.pop('sph_beta', None)
+        # Fluid gamma
+        self.sph_gamma: float = kwargs.pop('sph_gamma', None)
+        # Fluid speed of sound
+        self.sph_co: float = kwargs.pop('sph_co', None)
+        # XSPH eps
+        self.sph_xsph_eps: float = kwargs.pop('sph_xsph_eps', None)
+        # Fluid depth
+        self.sph_depth: float = kwargs.pop('sph_depth', None)
+        # Rigid body multiplier for h
+        self.sph_multiplier_h: float = kwargs.pop('sph_multiplier_h', None)
+        # Rigid body multiplier for mass
+        self.sph_multiplier_mass: float = kwargs.pop('sph_multiplier_mass', None)
+        # Rigid body multiplier for volume
+        self.sph_multiplier_volume: float = kwargs.pop('sph_multiplier_volume', None)
+        # Rigid body multiplier for rad_s
+        self.sph_multiplier_rad_s: float = kwargs.pop('sph_multiplier_rad_s', None)
+
+
+class AmphibiousArenaOptions(ArenaOptions):
+    """Amphibious arena options"""
+
+    def __init__(
+            self,
+            sdf: str,
+            spawn: Union[SpawnOptions, Dict],
+            water: Union[WaterOptions, Dict],
+            ground_height: float,
+    ):
+        super().__init__(
+            sdf=sdf,
+            spawn=spawn,
+            water=(
+                water
+                if isinstance(water, WaterOptions)
+                else AmphibiousWaterOptions(**water)
+                if any(k in water for k in options_kwargs_arena_keys())
+                else WaterOptions(**water)
+            ),
+            ground_height=ground_height
+        )
