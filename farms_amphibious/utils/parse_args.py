@@ -13,7 +13,9 @@ from ..model.options import (
     options_kwargs_str_keys,
     options_kwargs_str_list_keys,
     options_kwargs_bool_keys,
+    options_kwargs_sph_float_keys,
 )
+
 
 def config_argument_parser() -> argparse.ArgumentParser:
     """Parse args"""
@@ -258,6 +260,13 @@ def config_argument_parser() -> argparse.ArgumentParser:
         parser.add_argument(
             f'--{key}',
             type=bool,
+            default=None,
+            help=f'{key}',
+        )
+    for key in options_kwargs_sph_float_keys():
+        parser.add_argument(
+            f'--{key}',
+            type=float,
             default=None,
             help=f'{key}',
         )
