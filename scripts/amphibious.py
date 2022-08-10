@@ -16,7 +16,10 @@ from farms_sim.simulation import (
 )
 
 from farms_amphibious.callbacks import setup_callbacks
-from farms_amphibious.model.options import AmphibiousOptions
+from farms_amphibious.model.options import (
+    AmphibiousOptions,
+    AmphibiousArenaOptions,
+)
 from farms_amphibious.data.data import (
     AmphibiousData,
     AmphibiousKinematicsData,
@@ -53,7 +56,10 @@ def main():
         sim_options,
         arena_options,
         simulator,
-    ) = setup_from_clargs(animat_options_loader=AmphibiousOptions)
+    ) = setup_from_clargs(
+        animat_options_loader=AmphibiousOptions,
+        arena_options_loader=AmphibiousArenaOptions,
+    )
 
     if simulator == Simulator.PYBULLET and not ENGINE_BULLET:
         raise ImportError('Pybullet or farms_bullet not installed')
