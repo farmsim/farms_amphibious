@@ -24,6 +24,13 @@ def argument_parser() -> ArgumentParser:
         ),
     )
     parser.add_argument(
+        '--plot_type',
+        type=str,
+        choices=('gait', 'path'),
+        default=None,
+        help='Plot type',
+    )
+    parser.add_argument(
         '--sim_data',
         type=str,
         help='Simulation data path',
@@ -138,6 +145,8 @@ def plot_snapshot_links_positions(interpolate=False, **kwargs):
 
 def main():
     """Main"""
+
+    # Command line arguments
     clargs = parse_args()
 
     # LaTeX
@@ -153,6 +162,7 @@ def main():
     sep = np.linalg.norm(camera['separation'])
     iterations = camera['iterations']
     n_snapshots = len(iterations)
+    sim_options = SimulationOptions.load(clargs.sim_config)
     convention = AmphibiousConvention.from_amphibious_options(
         animat_options=AmphibiousOptions.load(clargs.animat_config),
     )
@@ -245,38 +255,51 @@ def main():
         'k--', alpha=.3, linewidth=0.5,
     )
 
-    # Snapshots ticks
-    yticks = [sep*i+com_mean for i in range(n_snapshots)]
-    plt.yticks(ticks=yticks, labels=range(1, n_snapshots+1))
-    plt.ylim([yticks[-1] + sep, yticks[0] - sep])
+    if clargs.plot_type == 'gait':
 
-    # Time
-    sim_options = SimulationOptions.load(clargs.sim_config)
-    time_interval = (iterations[1] - iterations[0])*sim_options.timestep
-    rel_pos = 0.5
-    plt.text(
-        x=0.1*sep,
-        y=(1-rel_pos)*yticks[-2]+rel_pos*yticks[-1],
-        s=f'{round(1e3*time_interval)} [ms]',
-        va='center',
-        ha='left',
-        fontsize=8,
-        color='k',
-        animated=False,
-    )
-    arrow = FancyArrowPatch(
-        posA=[0.15*sep, yticks[-2]],
-        posB=[0.15*sep, yticks[-1]],
-        arrowstyle=ArrowStyle(
-            stylename='Fancy',
-            head_length=10,
-            head_width=5,
-            tail_width=1,
-        ),
-        connectionstyle=ConnectionStyle('Arc3', rad=0.2),
-        color='k',
-    )
-    axes.add_artist(arrow)
+        # Snapshots ticks
+        yticks = [sep*i+com_mean for i in range(n_snapshots)]
+        plt.yticks(ticks=yticks, labels=range(1, n_snapshots+1))
+        plt.ylim([yticks[-1] + sep, yticks[0] - sep])
+        # plt.ylim([yticks[-1] + sep, yticks[0] - sep])
+
+        # Time
+        sim_options = SimulationOptions.load(clargs.sim_config)
+        time_interval = (iterations[1] - iterations[0])*sim_options.timestep
+        rel_pos = 0.5
+        plt.text(
+            x=0.1*sep,
+            y=(1-rel_pos)*yticks[-2]+rel_pos*yticks[-1],
+            s=f'{round(1e3*time_interval)} [ms]',
+            va='center',
+            ha='left',
+            fontsize=8,
+            color='k',
+            animated=False,
+        )
+        arrow = FancyArrowPatch(
+            posA=[0.15*sep, yticks[-2]],
+            posB=[0.15*sep, yticks[-1]],
+            arrowstyle=ArrowStyle(
+                stylename='Fancy',
+                head_length=10,
+                head_width=5,
+                tail_width=1,
+            ),
+            connectionstyle=ConnectionStyle('Arc3', rad=0.2),
+            color='k',
+        )
+        axes.add_artist(arrow)
+
+    elif clargs.plot_type == 'path':
+
+        # Bounds and label
+        plt.xlim([0, camera_dimensions[0]])
+        plt.ylim([0, camera_dimensions[1]])
+        plt.ylabel('Distance [m]')
+
+    else:
+        raise Exception(f'Unknown plot type: {clargs.plot_type}')
 
     # Final layout
     plt.xlabel('Distance [m]')
