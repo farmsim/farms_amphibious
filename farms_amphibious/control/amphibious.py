@@ -174,23 +174,6 @@ class JointMuscleController(AnimatController):
                 'ekeberg_muscle_explicit': self.ekeberg_muscle_explicit,
             }[torque_equation]]
 
-            if torque_equation == 'ekeberg_muscle':
-                # Velocity (damper)
-                self.equations[ControlType.VELOCITY] += [
-                    self.velocities_ekeberg_damper,
-                ]
-                self.velocity_indices_ekeberg = np.array([
-                    joint_i
-                    for joint_i, joint
-                    in enumerate(self.joints_names[ControlType.VELOCITY])
-                    if joint in self.equations_dict
-                    and self.equations_dict[joint] == 'ekeberg_muscle'
-                ], dtype=np.uintc)
-                self.velocity_targets_ekeberg = np.zeros_like(
-                    self.velocity_indices_ekeberg,
-                    dtype=np.double,
-                )
-
             self.network2joints[torque_equation] = EkebergMuscleCy(
                 joints_names=joints_names,
                 joints_data=self.animat_data.sensors.joints,
@@ -216,20 +199,6 @@ class JointMuscleController(AnimatController):
             )[joints_indices].tolist()
 
             self.equations[ControlType.TORQUE] += [self.passive]
-            self.equations[ControlType.VELOCITY] += [
-                self.velocities_passive_damper,
-            ]
-            self.velocity_indices_passive = np.array([
-                joint_i
-                for joint_i, joint
-                in enumerate(self.joints_names[ControlType.VELOCITY])
-                if joint in self.equations_dict
-                and self.equations_dict[joint] == 'passive'
-            ], dtype=np.uintc)
-            self.velocity_targets_passive = np.zeros_like(
-                self.velocity_indices_passive,
-                dtype=np.double,
-            )
 
             self.network2joints['passive'] = PassiveJointCy(
                 stiffness_coefficients=np.array([
@@ -301,21 +270,20 @@ class JointMuscleController(AnimatController):
             output.update(equation(iteration, time, timestep))
         return output
 
-    def velocities_ekeberg_damper(
+    def springrefs(
             self,
             iteration: int,
             time: float,
             timestep: float,
     ) -> Dict[str, float]:
-        """Position control to simulate damper properties in Ekeberg muscle"""
-        self.max_torques[ControlType.VELOCITY][self.velocity_indices_ekeberg] = np.abs(
-            self.network2joints['ekeberg_muscle'].damping(iteration)
-            + self.network2joints['ekeberg_muscle'].friction(iteration)
-        )
-        return dict(zip(
-            self.network2joints['ekeberg_muscle'].joints_names,
-            self.velocity_targets_ekeberg,
-        ))
+        """Spring references"""
+        output = {}
+        if 'ekeberg_muscle' in self.network2joints:
+            output = dict(zip(
+                self.network2joints['ekeberg_muscle'].joints_names,
+                self.network2joints['ekeberg_muscle'].joints_offsets,
+            ))
+        return output
 
     def ekeberg_muscle(
             self,
@@ -329,6 +297,18 @@ class JointMuscleController(AnimatController):
             self.network2joints['ekeberg_muscle'].torques_implicit(iteration),
         ))
 
+    def ekeberg_muscle_spring_ref(
+            self,
+            iteration: int,
+            time: float,
+            timestep: float,
+    ) -> Dict[str, float]:
+        """Ekeberg muscle spring reference"""
+        return dict(zip(
+            self.network2joints['ekeberg_muscle'].joints_names,
+            self.network2joints['ekeberg_muscle'].springrefs(iteration),
+        ))
+
     def ekeberg_muscle_explicit(
             self,
             iteration: int,
@@ -339,22 +319,6 @@ class JointMuscleController(AnimatController):
         return dict(zip(
             self.network2joints['ekeberg_muscle_explicit'].joints_names,
             self.network2joints['ekeberg_muscle_explicit'].torque_cmds(iteration),
-        ))
-
-    def velocities_passive_damper(
-            self,
-            iteration: int,
-            time: float,
-            timestep: float,
-    ) -> Dict[str, float]:
-        """Position control to simulate damper properties in Passive joint"""
-        self.max_torques[ControlType.VELOCITY][self.velocity_indices_passive] = np.abs(
-            self.network2joints['passive'].damping(iteration)
-            + self.network2joints['passive'].friction(iteration)
-        )
-        return dict(zip(
-            self.network2joints['passive'].joints_names,
-            self.velocity_targets_passive,
         ))
 
     def passive(
