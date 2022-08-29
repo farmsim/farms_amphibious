@@ -127,6 +127,7 @@ def plot_snapshot_links_positions(interpolate=False, **kwargs):
     alpha = kwargs.pop('alpha', 0.5)
     markersize = kwargs.pop('markersize', 1)
     linewidth = kwargs.pop('linewidth', 1)
+    label = kwargs.pop('label', None)
     pos_plot = snapshot_links_positions(**kwargs)
     if interpolate:
         n_points = pos_plot.shape[0]
@@ -139,6 +140,7 @@ def plot_snapshot_links_positions(interpolate=False, **kwargs):
     plt.plot(
         data_x, data_y,
         style, alpha=alpha, markersize=markersize, linewidth=linewidth,
+        label=label,
     )
     return pos_plot
 
@@ -169,20 +171,27 @@ def main():
 
     # Frame
     frame_pose = camera['frame_pos']
+    origin_pose = camera['origin_pos']
     frame_x = camera['frame_x']
     frame_y = camera['frame_y']
-    mov = -np.array(frame_pose)
-    rot = np.linalg.inv(np.array([frame_x, frame_y]).T)
+    if clargs.plot_type == 'gait':
+        mov = -np.array(frame_pose)
+        rot = np.linalg.inv(np.array([frame_x, frame_y]).T)
+    else:
+        mov = -np.array(origin_pose)
+        rot = np.array([frame_x, -np.array(frame_y)])
     camera_dimensions = camera['bounds_diff']
 
     # Plot figure
     _fig, axes = plt.subplots(1, 1, figsize=clargs.figsize)
 
     # Show image
-    _imgplot = plt.imshow(
-        X=img,
-        extent=[0, camera_dimensions[0], camera_dimensions[1], 0],
+    extent = (
+        [0, camera_dimensions[0], camera_dimensions[1], 0]
+        if clargs.plot_type == 'gait'
+        else [0, camera_dimensions[0], 0, camera_dimensions[1]]
     )
+    _imgplot = plt.imshow(X=img, extent=extent, origin='upper')
 
     # CoM
     com_global = np.array([
@@ -196,7 +205,19 @@ def main():
     # Plot for each snapshot
     head_pos_local = []
     has_foot = 'foot_0_0' in links_sensors.names
-    for i, (iteration, pos) in enumerate(zip(iterations, com_camera)):
+    body_mark_options={
+        'alpha': 0.5,
+        'linewidth': 0.7,
+        'markersize': 0.5,
+    }
+    com_pos_plot = [[], []]
+    contacts_plots = [[], []]
+    links_label = False
+    for i, (iteration, com_pos) in enumerate(zip(iterations, com_camera)):
+
+        # CoM positions for plot
+        com_pos_plot[0].append(com_pos[0])
+        com_pos_plot[1].append(com_pos[1]+sep*i)
 
         # Plot body positions
         pos_plot = plot_snapshot_links_positions(
@@ -205,8 +226,12 @@ def main():
             indices=range(convention.n_links_body()),
             sep=sep, mov=mov, rot=rot,
             use_links=clargs.use_links,
+            **body_mark_options,
+            **({'label': 'Links positions'} if links_label else {}),
         )
         head_pos_local.append(pos_plot[0])
+        if links_label:
+            links_label = False
 
         # Limbs analysis
         for leg_i in range(convention.n_legs_pair()):
@@ -229,6 +254,7 @@ def main():
                     ),
                     sep=sep, mov=mov, rot=rot,
                     use_links=clargs.use_links,
+                    **body_mark_options,
                 )
 
                 # Plot contacts
@@ -238,24 +264,40 @@ def main():
                         sensor_i=2*leg_i+side_i,
                     ))
                     if force > 1e-3:
-                        lines = plt.plot(
-                            pos_plot[-1, 0], pos_plot[-1, 1],
-                            'C1o', markersize=3,
-                        )
-                        for line in lines:  # Background
-                            line.set_zorder(0)
+                        contacts_plots[0].append(pos_plot[-1, 0])
+                        contacts_plots[1].append(pos_plot[-1, 1])
 
-        # Plot CoM
-        plt.plot(pos[0], pos[1]+sep*i, 'r*', alpha=.7)
-
-    # Head advancement
-    head_pos_local = np.array(head_pos_local)
+    # Plot CoM
     plt.plot(
-        head_pos_local[[0, -1], 0], head_pos_local[[0, -1], 1],
-        'k--', alpha=.3, linewidth=0.5,
+        com_pos_plot[0], com_pos_plot[1], 'r*', alpha=.7,
+        label='CoM position',
     )
+    contacts_plot = plt.plot(
+        contacts_plots[0], contacts_plots[1],
+        'C1o', markersize=3, alpha=0.5,
+        label='Contacts',
+    )
+    for line in contacts_plot:  # Background
+        line.set_zorder(0)
+
+    # Final layout
+    plt.xlabel('Distance [m]')
+    plt.grid(visible=True, alpha=0.5)
 
     if clargs.plot_type == 'gait':
+
+        # Axis
+        axes.xaxis.grid(visible=False)
+        axes.set_axisbelow(True)
+        for label in ['top', 'right', 'left']:  # 'bottom',
+            axes.spines[label].set_visible(False)
+
+        # Head advancement
+        head_pos_local = np.array(head_pos_local)
+        plt.plot(
+            head_pos_local[[0, -1], 0], head_pos_local[[0, -1], 1],
+            'k--', alpha=.3, linewidth=0.5,
+        )
 
         # Snapshots ticks
         yticks = [sep*i+com_mean for i in range(n_snapshots)]
@@ -294,20 +336,31 @@ def main():
     elif clargs.plot_type == 'path':
 
         # Bounds and label
-        plt.xlim([0, camera_dimensions[0]])
-        plt.ylim([0, camera_dimensions[1]])
-        plt.ylabel('Distance [m]')
+        plt.xlabel('Position [m]')
+        plt.ylabel('Position [m]')
+
+        # CoM trajectory
+        com_global_all = np.array([
+            links_sensors.global_com_position(iteration=iteration)[:2]
+            for iteration in range(iterations[0], iterations[-1])
+        ])
+        com_camera_all = [
+            transform(point=pos, mov=mov, rot=rot)
+            for pos in com_global_all
+        ]
+        com_camera_all = np.array(com_camera_all)
+        plt.plot(
+            com_camera_all[:, 0], com_camera_all[:, 1], 'r--', alpha=0.5,
+            label='CoM trajectory',
+        )
+        axes.xaxis.grid(visible=True)
 
     else:
         raise Exception(f'Unknown plot type: {clargs.plot_type}')
 
-    # Final layout
-    plt.xlabel('Distance [m]')
-    plt.grid(visible=True, alpha=0.5)
-    axes.set_axisbelow(True)
-    axes.xaxis.grid(visible=False)
-    for label in ['top', 'right', 'left']:  # 'bottom',
-        axes.spines[label].set_visible(False)
+    # Legend
+    if clargs.plot_type != 'gait':
+        plt.legend(loc='center left', bbox_to_anchor=(1, 0.5))
 
     # Save figure
     plt.savefig(clargs.output, dpi=clargs.dpi, bbox_inches='tight')
