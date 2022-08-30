@@ -26,6 +26,10 @@ cdef inline double sign(double value):
 cdef class EkebergMuscleCy(JointsMusclesCy):
     """Ekeberg muscle model"""
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.joints_offsets = np.zeros(self.n_joints, dtype=np.double)
+
     cpdef void step(self, unsigned int iteration):
         """Step"""
         cdef unsigned int joint_i, joint_data_i, osc_0, osc_1
@@ -33,7 +37,6 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
         cdef DTYPE active_torque, stiffness_intermediate
         cdef DTYPE active_stiffness, passive_stiffness, damping, friction
         cdef np.ndarray neural_activity = self.state.outputs(iteration)
-        cdef np.ndarray joints_offsets = np.zeros(self.n_joints, dtype=np.double)
         cdef DTYPEv1 offsets = self.state.offsets(iteration)
         cdef DTYPEv1 positions = self.joints_data.positions(iteration)
         cdef DTYPEv1 velocities = self.joints_data.velocities(iteration)
@@ -44,7 +47,7 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
             joint_data_i = self.indices[joint_i]
 
             # Offsets
-            joints_offsets[joint_i] = (
+            self.joints_offsets[joint_i] = (
                 self.transform_gain[joint_data_i]
                 *offsets[joint_data_i]
                 + self.transform_bias[joint_data_i]
@@ -55,7 +58,7 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
             osc_1 = self.osc_indices[1][joint_i]
             neural_diff = neural_activity[osc_0] - neural_activity[osc_1]
             neural_sum = neural_activity[osc_0] + neural_activity[osc_1]
-            m_delta_phi = joints_offsets[joint_i] - positions[joint_data_i]
+            m_delta_phi = self.joints_offsets[joint_i] - positions[joint_data_i]
 
             # Torques
             active_torque = self.parameters[joint_i][ALPHA]*neural_diff
