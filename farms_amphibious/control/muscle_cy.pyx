@@ -29,12 +29,11 @@ cdef class JointsMusclesCy(JointsControlCy):
             joint_i = self.indices[muscle_i]
             torques[muscle_i] = (
                 self.joints_data.array[iteration, joint_i, JOINT_TORQUE_ACTIVE]
-                + self.joints_data.array[iteration, joint_i, JOINT_TORQUE_STIFFNESS]
             )
         return torques
 
     cpdef np.ndarray damping(self, unsigned int iteration):
-        """Torques"""
+        """Damping torque"""
         return get_joints_data(
             iteration=iteration,
             joints_data=self.joints_data,
@@ -44,7 +43,7 @@ cdef class JointsMusclesCy(JointsControlCy):
         )
 
     cpdef np.ndarray friction(self, unsigned int iteration):
-        """Torques"""
+        """Friction torque"""
         return get_joints_data(
             iteration=iteration,
             joints_data=self.joints_data,
