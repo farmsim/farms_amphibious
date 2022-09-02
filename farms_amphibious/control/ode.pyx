@@ -117,31 +117,45 @@ cpdef inline void ode_stretch(
     """
     cdef unsigned int i, i0, i1, connection_type
     for i in range(joints2osc_map.n_connections):
-        i0 = joints2osc_map.connections.array[i, 0]
-        i1 = joints2osc_map.connections.array[i, 1]
+        i0 = joints2osc_map.connections.array[i, 0]  # Oscillator
+        i1 = joints2osc_map.connections.array[i, 1]  # Joint
         connection_type = joints2osc_map.connections.array[i, 2]
-        if connection_type == ConnectionType.STRETCH2FREQ:
+        if connection_type == ConnectionType.STRETCH2FREQTEGOTAE:
+            # stretch_weight*joint_position*sin(phase)
+            dstate[i0] += (
+                joints2osc_map.c_weight(i)
+                *joints.position_cy(iteration, i1)
+                *sin(state[i0])  # For Tegotae
+            )
+        elif connection_type == ConnectionType.STRETCH2AMPTEGOTAE:
+            # stretch_weight*joint_position*sin(phase)
+            dstate[n_oscillators+i0] += (
+                joints2osc_map.c_weight(i)
+                *joints.position_cy(iteration, i1)
+                *sin(state[i0])  # For Tegotae
+            )
+        elif connection_type == ConnectionType.STRETCH2FREQ:
             # stretch_weight*joint_position  # *sin(phase)
             dstate[i0] += (
                 joints2osc_map.c_weight(i)
                 *joints.position_cy(iteration, i1)
-                # *sin(state[i0])  # For Tegotae
             )
         elif connection_type == ConnectionType.STRETCH2AMP:
             # stretch_weight*joint_position  # *sin(phase)
             dstate[n_oscillators+i0] += (
                 joints2osc_map.c_weight(i)
                 *joints.position_cy(iteration, i1)
-                # *sin(state[i0])  # For Tegotae
             )
         else:
             printf(
                 'Joint connection %i of type %i is incorrect'
-                ', should be %i or %i\n',
+                ', should be %i, %i, %i or %i\n',
                 i,
                 connection_type,
                 ConnectionType.STRETCH2FREQ,
                 ConnectionType.STRETCH2AMP,
+                ConnectionType.STRETCH2FREQTEGOTAE,
+                ConnectionType.STRETCH2AMPTEGOTAE,
             )
 
 
@@ -167,12 +181,12 @@ cpdef inline void ode_contacts(
         if connection_type == ConnectionType.REACTION2FREQ:
             dstate[i0] += (
                 contacts2osc_map.c_weight(i)
-                *saturation(contact_reaction, 10)
+                *contact_reaction
             )
         elif connection_type == ConnectionType.REACTION2FREQTEGOTAE:
             dstate[i0] += (
                 contacts2osc_map.c_weight(i)
-                *saturation(contact_reaction, 10)
+                *contact_reaction
                 # *cos(state[i0])
                 *sin(state[i0])  # For Tegotae
             )
