@@ -8,17 +8,21 @@ from cycler import cycler
 import matplotlib.pyplot as plt
 
 from farms_core import pylog
+from farms_core.plot import colorgraph
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
-from farms_amphibious.utils.network import plot_networks_maps
-from farms_amphibious.control.drive import drive_from_config, plot_trajectory
-
+from farms_amphibious.model.convention import AmphibiousConvention
 
 plt.rc('axes', prop_cycle=(
     cycler(linestyle=['-', '--', '-.', ':'])
     * cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
 ))
+plt.rcParams.update({
+    'text.usetex': True,
+    'font.family': 'serif',
+    'font.serif': ['Palatino'],
+})
 
 
 def parse_args():
@@ -69,47 +73,22 @@ def main():
     animat_options = AmphibiousOptions.load(clargs.animat)
     simulation_options = SimulationOptions.load(clargs.simulation)
     animat_data = AmphibiousData.from_file(clargs.data)
+    n_iterations = simulation_options.n_iterations
+    timestep = animat_data.timestep
 
     # Plot simulation data
-    times = np.arange(
-        start=0,
-        stop=simulation_options.timestep*simulation_options.n_iterations,
-        step=simulation_options.timestep,
-    )
-    assert len(times) == simulation_options.n_iterations
+    times = np.arange(start=0, stop=timestep*(n_iterations-0.5), step=timestep)
+    assert len(times) == n_iterations, f'{len(times)=} != {n_iterations=}'
     times = times[:animat_data.sensors.links.array.shape[0]]
     plots_sim = animat_data.plot(times)
 
-    # Plot connectivity
-    plots_network = (
-        plot_networks_maps(
-            data=animat_data,
-            animat_options=animat_options,
-            show_all=True,
-        )[1]
-        if animat_options.morphology.n_dof_legs <= 4
-        else {}
-    )
-
-    # Plot descending drive
-    if animat_options.control.network.drive_config:
-        pos = np.array(animat_data.sensors.links.urdf_positions()[:, 0])
-        drive = drive_from_config(
-            filename=animat_options.control.drive_config,
-            animat_data=animat_data,
-            simulation_options=simulation_options,
-        )
-        fig3 = plot_trajectory(drive.strategy, pos)
-        plots_drive = {'trajectory': fig3}
-    else:
-        plots_drive = {}
 
     # Save plots
     extension = 'pdf'
-    for name, fig in {**plots_sim, **plots_network, **plots_drive}.items():
+    for name, fig in plots_sim.items():
         filename = os.path.join(clargs.output, f'{name}.{extension}')
         pylog.debug('Saving to %s', filename)
-        fig.savefig(filename, format=extension, bbox_inches='tight')
+        fig.savefig(filename, format=extension, bbox_inches='tight', dpi=300)
 
 
 if __name__ == '__main__':
