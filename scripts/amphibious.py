@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Run salamander simulation"""
 
+import os
 import time
 from typing import Union
 
@@ -8,6 +9,7 @@ from farms_core import pylog
 from farms_core.utils.profile import profile
 from farms_core.simulation.options import Simulator
 from farms_mujoco.simulation.simulation import Simulation as MuJoCoSimulation
+from farms_mujoco.sensors.camera import CameraCallback, save_video
 from farms_sim.utils.parse_args import sim_parse_args
 from farms_sim.simulation import (
     setup_from_clargs,
@@ -91,8 +93,18 @@ def main():
 
     # Additional engine-specific options
     options = {}
+    camera = None
     if simulator == Simulator.MUJOCO:
-        options['callbacks'] = setup_callbacks(animat_options)
+        if sim_options.video:
+            camera = CameraCallback(
+                camera_id=0,
+                timestep=sim_options.timestep,
+                n_iterations=sim_options.n_iterations,
+                fps=sim_options.video_fps,
+                width=sim_options.video_resolution[0],
+                height=sim_options.video_resolution[1],
+            )
+        options['callbacks'] = setup_callbacks(animat_options, camera)
     elif simulator == Simulator.PYBULLET:
         options.update(
             pybullet_simulation_kwargs(
@@ -122,6 +134,11 @@ def main():
         simulator=simulator,
         animat_data_loader=AmphibiousData,
     )
+    if sim_options.video:
+        save_video(
+            camera=camera,
+            video_path=os.path.join(sim_options.video, sim_options.video_name),
+        )
 
 
 def profile_simulation():
