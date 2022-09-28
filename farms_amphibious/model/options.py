@@ -2294,11 +2294,13 @@ class AmphibiousPassiveJointOptions(Options):
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
-class AmphibiousWaterOptions(WaterOptions):
+class AmphibiousSPHOptions(WaterOptions):
     """Amphibious water options"""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
+        # SPH
+        self.sph: bool = kwargs.pop('sph')
         # Logging frequency
         self.sph_log_freq: float = kwargs.pop('sph_log_freq', None)
         # Particle spacing
@@ -2349,9 +2351,9 @@ class AmphibiousArenaOptions(ArenaOptions):
             water=(
                 water
                 if isinstance(water, WaterOptions)
-                else AmphibiousWaterOptions(**water)
-                if any(k in water for k in options_kwargs_arena_keys())
+                else AmphibiousSPHOptions(**water)
+                if any(key in water for key in options_kwargs_sph_keys())
                 else WaterOptions(**water)
             ),
-            ground_height=ground_height
+            ground_height=ground_height,
         )
