@@ -56,7 +56,7 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
             # Data
             osc_0 = self.osc_indices[0][joint_i]
             osc_1 = self.osc_indices[1][joint_i]
-            neural_diff = neural_activity[osc_0] - neural_activity[osc_1]
+            neural_diff = neural_activity[osc_1] - neural_activity[osc_0]
             neural_sum = neural_activity[osc_0] + neural_activity[osc_1]
             m_delta_phi = self.joints_offsets[joint_i] - positions[joint_data_i]
 
