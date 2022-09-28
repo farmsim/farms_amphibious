@@ -104,7 +104,11 @@ def main():
                 width=sim_options.video_resolution[0],
                 height=sim_options.video_resolution[1],
             )
-        options['callbacks'] = setup_callbacks(animat_options, camera)
+        options['callbacks'] = setup_callbacks(
+            animat_options=animat_options,
+            arena_options=arena_options,
+            camera=camera,
+        )
     elif simulator == Simulator.PYBULLET:
         options.update(
             pybullet_simulation_kwargs(
