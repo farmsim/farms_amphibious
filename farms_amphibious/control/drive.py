@@ -115,6 +115,14 @@ class DescendingDrive(ABC):
         """Step"""
         raise NotImplementedError
 
+    def get_left_drive(self, iteration):
+        """Get forward drive"""
+        return self._drives.array[min(iteration, self.n_iterations-1), 0]
+
+    def get_right_drive(self, iteration):
+        """Get turn drive"""
+        return self._drives.array[min(iteration, self.n_iterations-1), 1]
+
     def set_left_drive(self, iteration, value):
         """Set forward drive"""
         self._drives.array[min(iteration, self.n_iterations-1), 0] = value
@@ -139,9 +147,11 @@ class OrientationFollower(DescendingDrive):
             Ki=kwargs.pop('pid_i', 0.0),
             Kd=kwargs.pop('pid_d', 0.0),
             sample_time=timestep,
-            output_limits=kwargs.pop('output_limits', (-0.2, 0.2)),
+            output_limits=kwargs.pop('output_limits', (-0.5, 0.5)),
         )
         self.value = 0
+        self.fwd = 0
+        self.turn = 0
         assert not kwargs, kwargs
 
     def update_turn_command(self, pos):
@@ -164,29 +174,29 @@ class OrientationFollower(DescendingDrive):
         contacts = np.array(
             self.animat_data.sensors.contacts.totals()[iteration],
             copy=True,
-        )
+        )[indices]
         contacts_sum = np.sum(np.abs(contacts))
-        self.value += 10*timestep*(contacts_sum - self.value)
+        self.value += max(100*timestep, 1)*(contacts_sum - self.value)
         contacts_condition = self.value > 9.81*self.contact_threshold
         return 2 if contacts_condition else 4
 
     def update(self, iteration, timestep, pos, heading):
         """Update drive"""
         self.setpoints[iteration] = self.update_turn_command(pos=pos)
-        turn = self.get_turn_control(
+        self.turn += max(100*timestep, 1)*(self.get_turn_control(
             iteration=iteration,
             timestep=timestep,
             command=self.setpoints[iteration],
             heading=heading,
-        )
-        fwd = self.get_foward_control(
+        ) - self.turn)
+        self.fwd += max(100*timestep, 1)*(self.get_foward_control(
             iteration=iteration,
             timestep=timestep,
             indices=self.indices,
-        )
-        self.set_left_drive(iteration=iteration, value=fwd+turn)
-        self.set_right_drive(iteration=iteration, value=fwd-turn)
-        self.control[iteration] = turn
+        )-self.fwd)
+        self.set_left_drive(iteration=iteration, value=self.fwd+self.turn)
+        self.set_right_drive(iteration=iteration, value=self.fwd-self.turn)
+        self.control[iteration] = self.turn
         return self.setpoints[iteration], self.control[iteration]
 
     def step(self, iteration, time, timestep):
