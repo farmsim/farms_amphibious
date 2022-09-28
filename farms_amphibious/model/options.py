@@ -140,7 +140,6 @@ class AmphibiousOptions(AnimatOptions):
             ),
         )
         self.name = kwargs.pop('name')
-        self.physics = AmphibiousPhysicsOptions(**kwargs.pop('physics'))
         self.show_xfrc = kwargs.pop('show_xfrc')
         self.scale_xfrc = kwargs.pop('scale_xfrc')
         self.mujoco = kwargs.pop('mujoco')
@@ -172,10 +171,6 @@ class AmphibiousOptions(AnimatOptions):
         options['spawn'] = kwargs.pop(
             'spawn',
             SpawnOptions.from_options(kwargs)
-        )
-        options['physics'] = kwargs.pop(
-            'physics',
-            AmphibiousPhysicsOptions.from_options(kwargs)
         )
         options['mujoco'] = kwargs.pop('mujoco', {})
         if 'solref' in kwargs:
@@ -469,40 +464,6 @@ class AmphibiousLinkOptions(LinkOptions):
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
-class AmphibiousPhysicsOptions(Options):
-    """Amphibious physics options"""
-
-    def __init__(self, **kwargs):
-        super().__init__()
-        self.drag = kwargs.pop('drag')
-        self.sph = kwargs.pop('sph')
-        self.buoyancy = kwargs.pop('buoyancy')
-        self.viscosity = kwargs.pop('viscosity')
-        self.water_height = kwargs.pop('water_height')
-        self.water_density = kwargs.pop('water_density')
-        self.water_velocity = kwargs.pop('water_velocity')
-        self.water_maps = kwargs.pop('water_maps')
-        assert not kwargs, f'Unknown kwargs: {kwargs}'
-
-    @classmethod
-    def from_options(cls, kwargs):
-        """From options"""
-        options = {}
-        options['drag'] = kwargs.pop('drag', False)
-        options['sph'] = kwargs.pop('sph', False)
-        options['buoyancy'] = kwargs.pop(
-            'buoyancy',
-            options['drag'] and not options['sph']
-        )
-        options['water_height'] = kwargs.pop(
-            'water_height',
-            options['drag'] or options['sph']
-        )
-        options['viscosity'] = kwargs.pop('viscosity', 1.0)
-        options['water_density'] = kwargs.pop('water_density', 1000.0)
-        options['water_velocity'] = kwargs.pop('water_velocity', [0.0, 0.0, 0.0])
-        options['water_maps'] = kwargs.pop('water_maps', [])
-        return cls(**options)
 
 
 class AmphibiousControlOptions(ControlOptions):
