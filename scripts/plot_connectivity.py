@@ -63,6 +63,9 @@ def parse_args():
 def main():
     """Main"""
 
+    # Style
+    plt.style.use('tableau-colorblind10')
+
     # Clargs
     clargs = parse_args()
 
