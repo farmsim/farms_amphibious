@@ -1,72 +1,27 @@
 """Plot data"""
 
 import os
-import argparse
 
 import numpy as np
-from cycler import cycler
 import matplotlib.pyplot as plt
 
 from farms_core import pylog
+from farms_core.analysis.plot import plt_farms_style
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 # from farms_amphibious.model.options import AmphibiousOptions
+from farms_amphibious.utils.parse_args import parse_args_postprocessing
 from farms_amphibious.control.drive import drive_from_config, plot_trajectory
-
-plt.rc('axes', prop_cycle=(
-    cycler(linestyle=['-', '--', '-.', ':'])
-    * cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
-))
-plt.rcParams.update({
-    'text.usetex': True,
-    'font.family': 'serif',
-    'font.serif': ['Palatino'],
-})
-
-
-def parse_args():
-    """Parse args"""
-    parser = argparse.ArgumentParser(
-        description='Plot amphibious simulation data',
-        formatter_class=(
-            lambda prog:
-            argparse.HelpFormatter(prog, max_help_position=50)
-        ),
-    )
-    parser.add_argument(
-        '--data',
-        type=str,
-        help='Data',
-    )
-    parser.add_argument(
-        '--animat',
-        type=str,
-        help='Animat options',
-    )
-    parser.add_argument(
-        '--simulation',
-        type=str,
-        help='Simulation options',
-    )
-    parser.add_argument(
-        '--output',
-        type=str,
-        help='Output path',
-    )
-    parser.add_argument(
-        '--drive_config',
-        type=str,
-        default='',
-        help='Descending drive method',
-    )
-    return parser.parse_args()
 
 
 def main():
     """Main"""
 
+    # Style
+    plt_farms_style()
+
     # Clargs
-    clargs = parse_args()
+    clargs = parse_args_postprocessing(description='Plot amphibious drive')
 
     # Load data
     # animat_options = AmphibiousOptions.load(clargs.animat)
