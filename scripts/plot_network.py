@@ -16,41 +16,11 @@ from farms_core.utils.profile import profile
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
-
+from farms_amphibious.utils.parse_args import parser_postprocessing
 
 def parse_args():
     """Parse args"""
-    parser = argparse.ArgumentParser(
-        description='Plot amphibious network',
-        formatter_class=(
-            lambda prog:
-            argparse.HelpFormatter(prog, max_help_position=50)
-        ),
-    )
-    parser.add_argument(
-        '--data',
-        type=str,
-        default='data_options.yaml',
-        help='Data',
-    )
-    parser.add_argument(
-        '--animat',
-        type=str,
-        default='animat_options.yaml',
-        help='Animat options',
-    )
-    parser.add_argument(
-        '--simulation',
-        type=str,
-        default='simulation.hdf5',
-        help='Simulation options',
-    )
-    parser.add_argument(
-        '--output',
-        type=str,
-        default='network.mp4',
-        help='Output path',
-    )
+    parser = parser_postprocessing(description='Plot amphibious network')
     parser.add_argument(
         '--single_frame',
         action='store_true',
@@ -68,7 +38,11 @@ def parse_args():
 
 def main(use_moviepy=True):
     """Main"""
+
+    # Style
+    plt.style.use('tableau-colorblind10')
     matplotlib.use('Agg')
+
     # Clargs
     args = parse_args()
     # Setup
