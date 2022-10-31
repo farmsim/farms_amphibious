@@ -7,6 +7,8 @@ from cycler import cycler
 import matplotlib.pyplot as plt
 
 from farms_core import pylog
+from farms_core.analysis.plot import plt_farms_style
+
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
@@ -64,7 +66,7 @@ def main():
     """Main"""
 
     # Style
-    plt.style.use('tableau-colorblind10')
+    plt_farms_style()
 
     # Clargs
     clargs = parse_args()

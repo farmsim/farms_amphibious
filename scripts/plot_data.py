@@ -1,7 +1,5 @@
 """Plot data"""
 
-import numpy as np
-
 from farms_core.simulation.options import SimulationOptions
 from farms_core.analysis.plot import plt_farms_style, save_plots
 from farms_amphibious.data.data import AmphibiousData
@@ -21,10 +19,9 @@ def main():
     simulation_options = SimulationOptions.load(clargs.simulation)
     animat_data = AmphibiousData.from_file(clargs.data)
     n_iterations = simulation_options.n_iterations
-    timestep = animat_data.timestep
 
     # Plot simulation data
-    times = np.arange(start=0, stop=timestep*(n_iterations-0.5), step=timestep)
+    times = simulation_options.times()
     assert len(times) == n_iterations, f'{len(times)=} != {n_iterations=}'
     times = times[:animat_data.sensors.links.array.shape[0]]
 

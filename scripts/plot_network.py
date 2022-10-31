@@ -1,7 +1,6 @@
 """Plot network"""
 
 import os
-import argparse
 
 import numpy as np
 import matplotlib
@@ -13,10 +12,13 @@ from moviepy.editor import VideoClip
 
 from farms_core import pylog
 from farms_core.utils.profile import profile
+from farms_core.analysis.plot import plt_style_options
+
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
 from farms_amphibious.utils.parse_args import parser_postprocessing
+
 
 def parse_args():
     """Parse args"""
@@ -40,7 +42,7 @@ def main(use_moviepy=True):
     """Main"""
 
     # Style
-    plt.style.use('tableau-colorblind10')
+    plt_style_options()
     matplotlib.use('Agg')
 
     # Clargs

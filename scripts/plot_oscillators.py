@@ -29,17 +29,20 @@ def main():
     timestep = animat_data.timestep
 
     # Plot simulation data
-    times = np.arange(start=0, stop=timestep*(n_iterations-0.5), step=timestep)
+    times = simulation_options.times()
     assert len(times) == n_iterations, f'{len(times)=} != {n_iterations=}'
     times = times[:animat_data.sensors.links.array.shape[0]]
 
     # Oscillators data
-    oscillators_phs = np.array(animat_data.state.phases_all()) % (2*np.pi)
+    phases = np.array(animat_data.state.phases_all())
+    oscillators_phs = phases % (2*np.pi)
+    oscillators_amp = np.array(animat_data.state.amplitudes_all())
     oscillators_out = np.array(animat_data.state.outputs_all())
     labels = animat_data.network.oscillators.names
+    oscillators_frq = np.diff(phases, axis=0)/(2*np.pi*timestep)
 
     # Convention
-    convention = AmphibiousConvention.from_morphology(animat_options.morphology)
+    convention = AmphibiousConvention.from_amphibious_options(animat_options)
     n_oscillators = len(labels)
     all_indices = list(range(n_oscillators))
     n_osc_body = convention.n_osc_body()
@@ -52,7 +55,9 @@ def main():
     # Plot
     plots_sim = {}
     for data, clabel, suffix in [
-            [oscillators_phs, 'Phases [rad]', '_phases'],
+            [oscillators_frq, 'Frequencies [Hz]', '_frequencies'],
+            [oscillators_phs, 'Phase [rad]', '_phases'],
+            [oscillators_amp, 'Amplitude', '_amplitudes'],
             [oscillators_out, 'Output', '_outputs'],
     ]:
         for cmap, suffix2 in [
@@ -80,8 +85,8 @@ def main():
                     labels=np.array(labels)[indices],
                     n_pixel_y=4,
                     gap=1,
-                    vmin=np.percentile(data.flatten(), 1),
-                    vmax=np.percentile(data.flatten(), 99),
+                    vmin=np.percentile(data[:, indices].flatten(), 1),
+                    vmax=np.percentile(data[:, indices].flatten(), 99),
                     x_extent=[0, times[-1]],
                     cmap=cmap,
                     xlabel='Time [s]',

@@ -7,9 +7,10 @@ import matplotlib.image as mpimg
 from matplotlib.patches import FancyArrowPatch, ArrowStyle, ConnectionStyle
 from scipy.interpolate import interp1d
 from PyPDF2 import PdfFileReader
-from farms_core.io.yaml import yaml2pyobject, pyobject2yaml
-from farms_core.simulation.options import SimulationOptions
 from farms_core.model.data import AnimatData
+from farms_core.analysis.plot import plt_farms_style
+from farms_core.simulation.options import SimulationOptions
+from farms_core.io.yaml import yaml2pyobject, pyobject2yaml
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.model.convention import AmphibiousConvention
 
@@ -148,21 +149,20 @@ def plot_snapshot_links_positions(interpolate=False, **kwargs):
 def main():
     """Main"""
 
+    # Style
+    plt_farms_style()
+
     # Command line arguments
     clargs = parse_args()
 
-    # LaTeX
-    plt.rc('text', usetex=True)
-    plt.rc('font', family='serif')
-
     # Aquire data
-    camera = yaml2pyobject(clargs.snapshots_config)
+    snapshots_config = yaml2pyobject(clargs.snapshots_config)
     img = mpimg.imread(clargs.snapshots_render)
     data = AnimatData.from_file(clargs.sim_data)
     links_sensors = data.sensors.links
     contacts_sensors = data.sensors.contacts
-    sep = np.linalg.norm(camera['separation'])
-    iterations = camera['iterations']
+    sep = np.linalg.norm(snapshots_config['separation'])
+    iterations = snapshots_config['iterations']
     n_snapshots = len(iterations)
     sim_options = SimulationOptions.load(clargs.sim_config)
     convention = AmphibiousConvention.from_amphibious_options(
@@ -170,17 +170,17 @@ def main():
     )
 
     # Frame
-    frame_pose = camera['frame_pos']
-    origin_pose = camera['origin_pos']
-    frame_x = camera['frame_x']
-    frame_y = camera['frame_y']
+    frame_pose = snapshots_config['frame_pos']
+    origin_pose = snapshots_config['origin_pos']
+    frame_x = snapshots_config['frame_x']
+    frame_y = snapshots_config['frame_y']
     if clargs.plot_type == 'gait':
         mov = -np.array(frame_pose)
         rot = np.linalg.inv(np.array([frame_x, frame_y]).T)
     else:
         mov = -np.array(origin_pose)
         rot = np.array([frame_x, -np.array(frame_y)])
-    camera_dimensions = camera['bounds_diff']
+    camera_dimensions = snapshots_config['bounds_diff']
 
     # Plot figure
     _fig, axes = plt.subplots(1, 1, figsize=clargs.figsize)
@@ -246,11 +246,6 @@ def main():
                             convention.leglink2index(leg_i, side_i, joint_i)
                             for joint_i in range(convention.n_dof_legs)
                         ]
-                        + (  # Foot
-                            [-convention.n_legs + 2*leg_i + side_i]
-                            if has_foot
-                            else []
-                        )
                     ),
                     sep=sep, mov=mov, rot=rot,
                     use_links=clargs.use_links,

@@ -26,10 +26,9 @@ def main():
     simulation_options = SimulationOptions.load(clargs.simulation)
     animat_data = AmphibiousData.from_file(clargs.data)
     n_iterations = simulation_options.n_iterations
-    timestep = animat_data.timestep
 
     # Plot simulation data
-    times = np.arange(start=0, stop=timestep*(n_iterations-0.5), step=timestep)
+    times = simulation_options.times()
     assert len(times) == n_iterations, f'{len(times)=} != {n_iterations=}'
     times = times[:animat_data.sensors.links.array.shape[0]]
 
@@ -45,7 +44,7 @@ def main():
     labels = animat_data.sensors.joints.names
 
     # Convention
-    convention = AmphibiousConvention.from_morphology(animat_options.morphology)
+    convention = AmphibiousConvention.from_amphibious_options(animat_options)
     n_joints = len(labels)
     all_indices = list(range(n_joints))
     body_indices = list(range(convention.n_joints_body))

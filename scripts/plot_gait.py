@@ -37,7 +37,7 @@ def main():
     assert len(times) == n_iterations, f'{len(times)=} != {n_iterations=}'
     times = times[:animat_data.sensors.links.array.shape[0]]
 
-    convention = AmphibiousConvention.from_morphology(animat_options.morphology)
+    convention = AmphibiousConvention.from_amphibious_options(animat_options)
     labels = [tuple(name)[0] for name in animat_data.sensors.contacts.names]
     n_contacts = len(labels)
     all_indices = list(range(n_contacts))

@@ -6,7 +6,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from farms_core import pylog
-from farms_core.analysis.plot import plt_farms_style
+from farms_core.analysis.plot import plt_farms_style, grid
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 # from farms_amphibious.model.options import AmphibiousOptions
@@ -27,9 +27,7 @@ def main():
     # animat_options = AmphibiousOptions.load(clargs.animat)
     simulation_options = SimulationOptions.load(clargs.simulation)
     animat_data = AmphibiousData.from_file(clargs.data)
-    n_iterations = simulation_options.n_iterations
-    timestep = animat_data.timestep
-    times = np.arange(start=0, stop=timestep*n_iterations, step=timestep)
+    times = simulation_options.times()
     plots_drive = {}
 
     # Plot descending drive
@@ -37,8 +35,8 @@ def main():
     fig = plt.figure('Drives')
     for drive_i, drive in enumerate(np.array(drives).T):
         plt.plot(times, drive, label=f'drive{drive_i}')
+    grid()
     plt.legend()
-    plt.grid(True)
     plt.xlabel('Time [s]')
     plt.ylabel('Drive value')
     plots_drive['drives'] = fig
