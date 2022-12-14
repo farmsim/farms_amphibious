@@ -6,7 +6,7 @@ from ..model.convention import AmphibiousConvention
 
 def analyse_gait_amphibious(animat_data, animat_options):
     """Analyse gait"""
-    convention = AmphibiousConvention.from_morphology(animat_options.morphology)
+    convention = AmphibiousConvention.from_amphibious_options(animat_options)
     contact_indices = range(convention.n_legs)
     joint_indices = [
         convention.legjoint2index(leg_i=leg_i, side_i=side_i, joint_i=0)
