@@ -124,16 +124,16 @@ def plot_element_2d(plots, exp_data, **kwargs):
     zlabel = kwargs.pop('zlabel')
     condition = kwargs.pop('condition', lambda _: True)
     plots[plot_name] = plt.figure(plot_name)
-    for _label_i, (_label, data) in enumerate(exp_data.items()):
-        plot2d(
-            results=np.array([
-                [exp[xdata] for exp in data if condition(exp['drive'])],
-                [exp[ydata] for exp in data if condition(exp['drive'])],
-                [exp[zdata] for exp in data if condition(exp['drive'])],
-            ]).T,
-            labels=[xlabel, ylabel, zlabel],
-            **kwargs,
-        )
+    plot2d(
+        results=np.array([
+            [exp[xdata], exp[ydata], exp[zdata]]
+            for data in exp_data.values()
+            for exp in data
+            if condition(exp['drive'])
+        ]),
+        labels=[xlabel, ylabel, zlabel],
+        **kwargs,
+    )
 
 
 def plot_multi_exponent_2d(plots, exp_data, **kwargs):
@@ -151,24 +151,20 @@ def plot_multi_exponent_2d(plots, exp_data, **kwargs):
         plot_name = plot_name_template.format(exponent)
         plots[plot_name] = plt.figure(plot_name)
         exp = f'^{exponent}' if exponent > 1 else ''
-        for _label_i, (_label, data) in enumerate(exp_data.items()):
-            plot2d(
-                results=np.array([
-                    [exp[xdata] for exp in data if condition(exp['drive'])],
-                    [exp[ydata] for exp in data if condition(exp['drive'])],
-                    [
-                        exp[zdata.format(exponent)]
-                        for exp in data
-                        if condition(exp['drive'])
-                    ],
-                ]).T,
-                labels=[
-                    xlabel,
-                    ylabel,
-                    zlabel.format(equation=equation.format(exp=exp)),
-                ],
-                **kwargs,
-            )
+        plot2d(
+            results=np.array([
+                [exp[xdata], exp[ydata], exp[zdata.format(exponent)]]
+                for data in exp_data.values()
+                for exp in data
+                if condition(exp['drive'])
+            ]),
+            labels=[
+                xlabel,
+                ylabel,
+                zlabel.format(equation=equation.format(exp=exp)),
+            ],
+            **kwargs,
+        )
 
 
 def plot_element_colorgraph(plots, exp_data, size_auto=False, **kwargs):
