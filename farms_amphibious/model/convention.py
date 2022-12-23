@@ -78,6 +78,10 @@ class AmphibiousConvention(Options):
         """Number of links in body"""
         return self.n_joints_body+1
 
+    def n_links_legs(self):
+        """Number of links in legs"""
+        return self.n_dof_legs*self.n_legs
+
     def n_states(self):
         """Number of states"""
         n_osc = self.n_osc()
@@ -116,6 +120,10 @@ class AmphibiousConvention(Options):
         """Number of body oscillators"""
         return self.n_opbj()*(self.n_joints_body)
 
+    def n_osc_leg(self):
+        """Number of leg oscillators"""
+        return self.n_oplj()*self.n_dof_legs
+
     def n_osc_legs(self):
         """Number of legs oscillators"""
         return self.n_oplj()*(self.n_joints_legs())
@@ -135,7 +143,7 @@ class AmphibiousConvention(Options):
         return self.body_osc_indices(joint_i)[side]
 
     def oscindex2name(self, index):
-        """Oscillator index to parameters"""
+        """Oscillator index to name"""
         parameters = self.oscindex2information(index)
         body = parameters.pop('body')
         if not body:
@@ -145,6 +153,11 @@ class AmphibiousConvention(Options):
             if body
             else self.legosc2name(**parameters)
         )
+
+    def oscname2index(self, name):
+        """Oscillator name to index"""
+        osc_names = [self.oscindex2name(index) for index in range(self.n_osc())]
+        return osc_names.index(name)
 
     def bodyosc2name(self, joint_i, side=0):
         """body2name"""
