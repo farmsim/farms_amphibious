@@ -41,12 +41,14 @@ def parse_args():
 def main(use_moviepy=True):
     """Main"""
 
-    # Style
-    plt_style_options()
-    matplotlib.use('Agg')
-
     # Clargs
     args = parse_args()
+    _, extension = os.path.splitext(args.output)
+
+    # Style
+    matplotlib.use('Agg')
+    plt_style_options()
+
     # Setup
     animat_options = AmphibiousOptions.load(args.animat)
     # simulation_options = SimulationOptions.load(args.simulation)
@@ -54,19 +56,24 @@ def main(use_moviepy=True):
     network_anim = plot_networks_maps(
         data=data,
         animat_options=animat_options,
-        show_text=True,  # not args.no_text,
+        show_text=not args.no_text,
+        animation_only=True,
+        show_all=False,
+        figsize=(14, 7),
     )[0]
     fig = plt.gcf()
     cax = plt.gca()
     fig.tight_layout()
     fig.set_size_inches(14, 7)
+
     # Draw to save background
     fig.canvas.draw()
     background = fig.canvas.copy_from_bbox(fig.bbox)
+
     # Animation elements
     elements = network_anim.animation_elements()
-    # Extension
-    _, extension = os.path.splitext(args.output)
+
+    # Render
     if extension == '.png':
         # Save every frame
         for frame in range(1 if args.single_frame else network_anim.n_frames):
