@@ -1168,3 +1168,611 @@ def plot_networks_maps(
         )
 
     return network_anim, plots
+
+
+def get_osc_matrices(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+):
+    """Get oscillator matrices"""
+
+    n_osc = len(osc_names)
+    osc_weights = np.full((n_osc, n_osc), np.nan)
+    osc_phase_bias = np.full((n_osc, n_osc), np.nan)
+
+    # Osc2osc connections
+    for connection in animat_options.control.network.osc2osc:
+        assert connection['type'] == 'OSC2OSC'
+        osc_weights[
+            osc_names.index(connection['in']),
+            osc_names.index(connection['out']),
+        ] = connection['weight']
+        osc_phase_bias[
+            osc_names.index(connection['in']),
+            osc_names.index(connection['out']),
+        ] = connection['phase_bias']
+
+    return osc_weights, osc_phase_bias
+
+
+def plot_connectivity_osc_couplings(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot oscillator couplings"""
+
+    plots = {}
+
+    osc_weights, osc_phase_bias = get_osc_matrices(animat_options, osc_names)
+
+    # Plotting function
+    partial_osc_matrix = partial(
+        plot_matrix,
+        labels=[osc_labels, osc_labels],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        lines=osc_lines,
+        xtwin=osc_twin,
+        ytwin=osc_twin,
+        interpolation='nearest',
+        aspect='auto',
+    )
+
+    # Oscillator coupling weights
+    name = 'network_matrix_osc_weights'
+    plots[name] = partial_osc_matrix(
+        osc_weights,
+        fig_name=name,
+        clabel='Weight',
+        cmap=cm.get_cmap('cividis'),
+        norm=LogNorm(),
+    )
+
+    # Oscillator coupling phase bias
+    name = 'network_matrix_osc_phase_bias'
+    plots[name] = partial_osc_matrix(
+        (osc_phase_bias + np.pi) % (2*np.pi) - np.pi,
+        fig_name=name,
+        clabel='Phase bias [rad]',
+        cmap=cm.get_cmap('turbo'),  # BrBG
+        norm=Normalize(
+            vmin=-np.pi,
+            vmax=+np.pi,
+            clip=True,
+        ),
+    )
+
+    return plots
+
+
+def get_sensor_names(
+        connections: List,
+        designator: str,
+):
+    """Get sensor names"""
+    sensors_names = list(dict.fromkeys([
+        connection['out']
+        for connection in connections
+    ]))
+    sensor_labels = [
+        designator + (
+            sensor[0]
+            if isinstance(sensor, tuple)
+            else sensor
+        ).replace(
+            'sensor_', '',
+        ).replace(
+            'body', 'b',
+        ).replace(
+            'leg', 'l',
+        ).replace(
+            '_', ',',
+        ) + r'}$'
+        for sensor in sensors_names
+    ]
+    return sensors_names, sensor_labels
+
+
+def get_sensor_matrix(
+        connections: List,
+        connection_type: str,
+        osc_names: List[str],
+        sensors_names: List[str],
+):
+    """Get sensors matrix"""
+    n_osc = len(osc_names)
+    n_sensors = len(sensors_names)
+    matrix = np.full((n_osc, n_sensors), np.nan)
+    for connection in connections:
+        if connection['type'] == connection_type:
+            matrix[
+                osc_names.index(connection['in']),
+                sensors_names.index(connection['out']),
+            ] = connection['weight']
+    return matrix
+
+
+def plot_connectivity_joints(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot joints connectivity"""
+
+    plots = {}
+    joints_names, joint_labels = get_sensor_names(
+        connections=animat_options.control.network.joint2osc,
+        designator=r'$\mathcal{J}_{',
+    )
+
+    # Joint2osc connections
+    partial_joint_matrix = partial(
+        plot_matrix,
+        labels=[osc_labels, joint_labels],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        lines=osc_lines,
+        ytwin=osc_twin,
+        clabel='Weight',
+        interpolation='nearest',
+        aspect='auto',
+        cmap=cm.get_cmap('cividis'),
+    )
+    for connection_type in [
+            'POS2FREQ',
+            'VEL2FREQ',
+            'TOR2FREQ',
+            'POS2AMP',
+            'VEL2AMP',
+            'TOR2AMP',
+            'STRETCH2FREQPOS',
+            'STRETCH2FREQNEG',
+            'STRETCH2AMPPOS',
+            'STRETCH2AMPNEG',
+            'STRETCH2FREQTEGOTAE',
+            'STRETCH2AMPTEGOTAE',
+            'STRETCH2FREQTEGOTAEMOD',
+            'STRETCH2AMPTEGOTAEMOD',
+            'STRETCH2FREQ',
+            'STRETCH2AMP',
+            'STRETCHVEL2FREQ',
+            'STRETCHVEL2AMP',
+    ]:
+        matrix = get_sensor_matrix(
+            connections=animat_options.control.network.joint2osc,
+            connection_type=connection_type,
+            osc_names=osc_names,
+            sensors_names=joints_names,
+        )
+        name = f'network_matrix_j2o_{connection_type}'
+        plots[name] = partial_joint_matrix(matrix, fig_name=name)
+        name += '_reducex'
+        plots[name] = partial_joint_matrix(matrix, fig_name=name, reduce_x=True)
+
+    return plots
+
+
+def plot_connectivity_contacts(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot contacts connectivity"""
+
+    plots = {}
+    contacts_names, contact_labels = get_sensor_names(
+        connections=animat_options.control.network.contact2osc,
+        designator=r'$\mathcal{C}_{',
+    )
+
+    # Contact2osc connections
+    partial_contact_matrix = partial(
+        plot_matrix,
+        labels=[osc_labels, contact_labels],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        lines=osc_lines,
+        ytwin=osc_twin,
+        clabel='Weight',
+        interpolation='nearest',
+        aspect='auto',
+        cmap=cm.get_cmap('cividis'),
+    )
+    for connection_type in [
+            'REACTION2FREQ',
+            'REACTION2AMP',
+            'FRICTION2FREQ',
+            'REACTION2PHASE0',
+            'REACTION2PHASEPI',
+            'REACTION2FREQTEGOTAE',
+            'FRICTION2AMP',
+    ]:
+        matrix = get_sensor_matrix(
+            connections=animat_options.control.network.contact2osc,
+            connection_type=connection_type,
+            osc_names=osc_names,
+            sensors_names=contacts_names,
+        )
+        name = f'network_matrix_c2o_{connection_type}'
+        plots[name] = partial_contact_matrix(matrix, fig_name=name)
+        name += '_reducex'
+        plots[name] = partial_contact_matrix(matrix, fig_name=name, reduce_x=True)
+
+    return plots
+
+
+def plot_connectivity_xfrc(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot xfrc connectivity"""
+
+    plots = {}
+    xfrc_names, xfrc_labels = get_sensor_names(
+        connections=animat_options.control.network.xfrc2osc,
+        designator=r'$\mathcal{F}_{',
+    )
+
+    # Xfrc2osc connections
+    partial_xfrc_matrix = partial(
+        plot_matrix,
+        labels=[osc_labels, xfrc_labels],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        lines=osc_lines,
+        ytwin=osc_twin,
+        clabel='Weight',
+        interpolation='nearest',
+        aspect='auto',
+        cmap=cm.get_cmap('cividis'),
+    )
+    for connection_type in [
+            'LATERAL2FREQTEGOTAE',
+            'LATERAL2FREQCOS',
+            'LATERAL2FREQ',
+            'LATERAL2AMP',
+    ]:
+        matrix = get_sensor_matrix(
+            connections=animat_options.control.network.xfrc2osc,
+            connection_type=connection_type,
+            osc_names=osc_names,
+            sensors_names=xfrc_names,
+        )
+        name = f'network_matrix_j2o_{connection_type}'
+        plots[name] = partial_xfrc_matrix(matrix, fig_name=name)
+        name += '_reducex'
+        plots[name] = partial_xfrc_matrix(matrix, fig_name=name, reduce_x=True)
+
+    return plots
+
+
+def plot_connectivity_sensors(**kwargs):
+    """Plot sensors connectivity"""
+    plots = {}
+    plots.update(plot_connectivity_joints(**kwargs))
+    plots.update(plot_connectivity_contacts(**kwargs))
+    plots.update(plot_connectivity_xfrc(**kwargs))
+    return plots
+
+
+def plot_connectivity_drive(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot drives connectivity"""
+
+    plots = {}
+    contacts_names = animat_options.control.sensors.contacts
+    contact_labels = [
+        r'$\mathcal{C}_{' + (
+            sensor[0]
+            if isinstance(sensor, tuple)
+            else sensor
+        ).replace(
+            'sensor_', '',
+        ).replace(
+            'body', 'b',
+        ).replace(
+            'leg', 'l',
+        ).replace(
+            '_', ',',
+        ) + r'}$'
+        for sensor in contacts_names
+    ]
+
+    # Matrix
+    n_osc = len(osc_names)
+    n_contacts = len(contacts_names)
+    n_drives = len(animat_options.control.network.drives)
+    if n_drives == n_osc:
+        n_drives = 1
+    matrix = np.full((n_osc, n_drives+n_contacts), np.nan)
+    for osc_i in range(n_osc):
+        drive_i = animat_options.control.network.drive2osc[osc_i]
+        drive = animat_options.control.network.drives[drive_i]
+        if n_drives == 1:
+            assert osc_i == drive_i, f'{osc_i=} != {drive_i=}'
+            matrix[osc_i, 0] = 1
+        else:
+            matrix[osc_i, drive_i] = 1
+        for contact in drive.contacts:
+            assert contact in contacts_names, (
+                f'{contact=} not in {contacts_names=}'
+            )
+            matrix[osc_i, n_drives + contacts_names.index(contact)] = 1
+
+    # Contact2osc connections
+    partial_contact_matrix = partial(
+        plot_matrix,
+        labels=[
+            osc_labels,
+            (
+                [r'$\mathcal{D}_{intrinsic}$']
+                if n_drives == 1
+                else osc_labels
+            ) + contact_labels
+        ],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        clabel='Weight',
+        interpolation='nearest',
+        aspect='auto',
+        cmap=cm.get_cmap('cividis'),
+    )
+
+    name = 'network_matrix_d2o'
+    plots[name] = partial_contact_matrix(matrix, fig_name=name)
+    name += '_reducex'
+    plots[name] = partial_contact_matrix(matrix, fig_name=name, reduce_x=True)
+
+    return plots
+
+
+def plot_connectivity_full(
+        animat_options: AmphibiousOptions,
+        osc_names: List[str],
+        osc_labels: List[str],
+        osc_lines: List[MatrixLine],
+        osc_twin: List,
+):
+    """Plot full connectivity"""
+
+    plots = {}
+    joints_weights, joints_names, joint_labels = {}, {}, {}
+    contacts_weights, contacts_names, contact_labels = {}, {}, {}
+
+    # Oscillators
+    osc_weights, _osc_phase_bias = get_osc_matrices(animat_options, osc_names)
+
+    # Joints
+    seps = []
+    desinators = []
+    for conn_type, des in [
+            ('STRETCH2FREQTEGOTAE', r'\theta'),
+            ('STRETCHVEL2FREQ', r'\dot{\theta}'),
+    ]:
+        joints_names[conn_type], joint_labels[conn_type] = get_sensor_names(
+            connections=animat_options.control.network.joint2osc,
+            designator=r'$\mathcal{J}_{' + des + ',',
+        )
+        joints_weights[conn_type] = get_sensor_matrix(
+            connections=animat_options.control.network.joint2osc,
+            connection_type=conn_type,
+            osc_names=osc_names,
+            sensors_names=joints_names[conn_type],
+        )
+        seps += [joints_weights[conn_type].shape[1]]
+        desinators += [r'$\mathcal{J}_{' + des + r'}$']
+
+    # Contacts
+    for conn_type, des in [
+            ('REACTION2PHASE0', 'E'),
+            ('REACTION2PHASEPI', 'I'),
+    ]:
+        contacts_names[conn_type], contact_labels[conn_type] = get_sensor_names(
+            connections=animat_options.control.network.contact2osc,
+            designator=r'$\mathcal{C}_{' + des + ',',
+        )
+        contacts_weights[conn_type] = get_sensor_matrix(
+            connections=animat_options.control.network.contact2osc,
+            connection_type=conn_type,
+            osc_names=osc_names,
+            sensors_names=contacts_names[conn_type],
+        )
+        seps += [contacts_weights[conn_type].shape[1]]
+        desinators += [r'$\mathcal{C}_{' + des + r'}$']
+
+    # Plotting function
+    sensors_labels = [
+        label
+        for labels in joint_labels.values()
+        for label in labels
+    ]+[
+        label
+        for labels in contact_labels.values()
+        for label in labels
+    ]
+    matrix = np.concatenate(
+        (
+            (osc_weights,)
+            + tuple(joints_weights.values())
+            + tuple(contacts_weights.values())
+        ),
+        axis=1,
+    )
+    matrix_pos = np.where(matrix > 0, matrix, np.nan)
+    matrix_neg = np.where(matrix < 0, matrix, np.nan)
+    if not np.isnan(matrix_neg).all() and not np.isnan(matrix_pos).all():
+        vmax = np.nanmax(matrix_pos)
+        vmin = np.nanmin(matrix_neg)
+        linthresh = min(-np.nanmax(matrix_neg), np.nanmin(matrix_pos))
+        norm = SymLogNorm(
+            linthresh=linthresh,
+            linscale=0.5,
+            vmin=vmin,
+            vmax=vmax,
+            base=10,
+        )
+    else:
+        norm = LogNorm()
+    partial_full_matrix = partial(
+        plot_matrix,
+        matrix=matrix,
+        labels=[osc_labels, osc_labels+sensors_labels],
+        xlabel='Emitters',
+        ylabel='Receiving oscillators',
+        lines=osc_lines+[
+            # Separation between oscillator coupling and sensory feedback
+            MatrixLine.column(
+                index=len(osc_labels)-0.5,
+                color=(1, 0, 0, 0.5),
+                linestyle='dashed',
+                linewidth=1,
+            )
+        ] + [
+            MatrixLine.column(
+                index=len(osc_labels)-0.5+sum(seps[:sep_i])+sep,
+                color=(0, 0, 0, 0.3),
+                linestyle='dashed',
+                linewidth=1,
+            )
+            for sep_i, sep in enumerate(seps[:-1])
+        ],
+        xtwin=osc_twin + [
+            [
+                designator,
+                [
+                    len(osc_labels)+sum(seps[:des_i]),
+                    len(osc_labels)+sum(seps[:des_i+1]),
+                ]
+            ]
+            for des_i, designator in enumerate(desinators)
+        ],
+        ytwin=osc_twin,
+        interpolation='nearest',
+        aspect='auto',
+        clabel='Weight',
+        cmap=cm.get_cmap('turbo'),
+        norm=norm,
+    )
+
+    # Full weights connectivity
+    name = 'network_matrix_full'
+    plots[name] = partial_full_matrix(fig_name=name)
+    plots[name+'_reducex'] = partial_full_matrix(
+        fig_name=name+'_reducex',
+        reduce_x=True,
+    )
+    plots[name+'_reducey'] = partial_full_matrix(
+        fig_name=name+'_reducey',
+        reduce_y=True,
+    )
+
+    return plots
+
+
+def plot_connectivity_matrix(
+        # data: AmphibiousData,
+        animat_options: AmphibiousOptions,
+):
+    """Plot connectivity matrix"""
+
+    plots = {}
+    convention = AmphibiousConvention.from_amphibious_options(animat_options)
+
+    # Oscillators
+    n_osc = convention.n_osc()
+    n_osc_leg = convention.n_osc_leg()
+    n_osc_body = convention.n_osc_body()
+    osc_names = [convention.oscindex2name(index) for index in range(n_osc)]
+    osc_labels = [
+        '$' + name.replace(
+            'body', 'b',
+        ).replace(
+            'leg', 'l',
+        ).replace(
+            '_', ',',
+        ).replace(
+            'osc,', r'\mathcal{O}_{',
+        ) + '}$'
+        for name in osc_names
+    ]
+    osc_twin=[
+        ['Body', [0, n_osc_body-1]],
+        ['LF', [n_osc_body+0*n_osc_leg, n_osc_body+1*n_osc_leg-1]],
+        ['RF', [n_osc_body+1*n_osc_leg, n_osc_body+2*n_osc_leg-1]],
+        ['LH', [n_osc_body+2*n_osc_leg, n_osc_body+3*n_osc_leg-1]],
+        ['RH', [n_osc_body+3*n_osc_leg, n_osc_body+4*n_osc_leg-1]],
+    ]
+
+    # Lines
+    osc_lines_row, osc_lines_column = [
+        [  # Body
+            function(
+                index=n_osc_body-0.5,
+                color=(1, 0, 0, 0.5),
+                linestyle='dashed',
+                linewidth=1,
+            )
+        ] + [  # Limbs
+            function(
+                index=n_osc_body+(1+i)*n_osc_leg-0.5,
+                color=(0, 0, 0, 0.3),
+                linestyle='dashed',
+                linewidth=1,
+            )
+            for i in range(max(0, convention.n_legs-1))
+        ]
+        for function in (MatrixLine.row, MatrixLine.column)
+    ]
+
+    # Oscillators
+    plots.update(plot_connectivity_osc_couplings(
+        animat_options=animat_options,
+        osc_names=osc_names,
+        osc_labels=osc_labels,
+        osc_lines=osc_lines_row+osc_lines_column,
+        osc_twin=osc_twin,
+    ))
+
+    # Sensors
+    plots.update(plot_connectivity_sensors(
+        animat_options=animat_options,
+        osc_names=osc_names,
+        osc_labels=osc_labels,
+        osc_lines=osc_lines_row,
+        osc_twin=osc_twin,
+    ))
+
+    # Drive
+    plots.update(plot_connectivity_drive(
+        animat_options=animat_options,
+        osc_names=osc_names,
+        osc_labels=osc_labels,
+        osc_lines=osc_lines_row+osc_lines_column,
+        osc_twin=osc_twin,
+    ))
+
+    # Full
+    plots.update(plot_connectivity_full(
+        animat_options=animat_options,
+        osc_names=osc_names,
+        osc_labels=osc_labels,
+        osc_lines=osc_lines_row+osc_lines_column,
+        osc_twin=osc_twin,
+    ))
+
+    return plots
