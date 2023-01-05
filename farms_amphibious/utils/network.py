@@ -1,14 +1,23 @@
 """Network"""
 
+from typing import List
 from functools import partial
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib import cm, patches
 from matplotlib.animation import FuncAnimation
-from matplotlib.colors import colorConverter, Normalize, ListedColormap
+from matplotlib.colors import (
+    colorConverter,
+    Normalize,
+    ListedColormap,
+    LogNorm,
+    SymLogNorm,
+)
 from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 from farms_core import pylog
+from farms_core.analysis.plot import plot_matrix, MatrixLine
 
 from ..data.data import AmphibiousData
 from ..data.data_cy import ConnectionType
@@ -176,14 +185,15 @@ def draw_network(source, destination, radius, connectivity, **kwargs):
         rad=rad,
         color=color_arrows,
         alpha=alpha,
-        **options
+        **options,
     )
     return nodes, nodes_texts, node_connectivity
 
 
-def create_colorbar(axes, cmap, vmin, vmax, size='5%', pad=0.05, **kwargs):
+def create_colorbar(cax, cmap, vmin, vmax, **kwargs):
     """Colorbar"""
     return plt.colorbar(
+        cax=cax,
         mappable=cm.ScalarMappable(
             norm=Normalize(
                 vmin=vmin,
@@ -227,7 +237,7 @@ class NetworkFigure:
         self.n_iterations = np.shape(self.data.sensors.links.array)[0]
         self.interval = 25
         self.n_frames = round(self.n_iterations*self.timestep / (1e-3*self.interval))
-        self.network = NetworkODE(self.data, max_step=self.timestep)
+        self.network = NetworkODE(self.data)  # , max_step=self.timestep
         self.cmap_phases = plt.get_cmap('Greens')
         self.cmap_drives = plt.get_cmap('turbo')
         self.cmap_drive_max = 6
@@ -260,63 +270,70 @@ class NetworkFigure:
             animated=True,
         )
 
-        # Oscillators
+        # Colorbars
         divider = make_axes_locatable(self.axes)
-        size = '5%'
-        pad = 0.5  # 0.05
+        size = '3%'
+        pad = 0.25  # 0.5, 0.05
+
+        # Oscillators
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
-            axes=self.axes,
+            cax=cax,
             cmap=self.cmap_phases,
             vmin=0, vmax=1,
-            cax=cax,
         )
         cbar.ax.set_ylabel('Oscillators output', rotation=270)
-        cbar.ax.get_yaxis().labelpad = -30
+        cbar.ax.get_yaxis().labelpad = -20
+        cbar.ax.get_yaxis().zorder = 100
+        cbar.ax.tick_params(rotation=270)
 
         # Drives
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
-            self.axes,
+            cax=cax,
             cmap=self.cmap_drives,
             vmin=0, vmax=self.cmap_drive_max,
-            cax=cax,
         )
         cbar.ax.set_ylabel('Drives', rotation=270)
-        cbar.ax.get_yaxis().labelpad = -30
+        cbar.ax.get_yaxis().labelpad = -20
+        cbar.ax.get_yaxis().zorder = 100
+        cbar.ax.tick_params(rotation=270)
 
         # Joints
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
-            self.axes,
+            cax=cax,
             cmap=self.cmap_joints,
             vmin=-self.cmap_joint_max, vmax=self.cmap_joint_max,
-            cax=cax,
         )
         cbar.ax.set_ylabel('Joints position [rad]', rotation=270)
-        cbar.ax.get_yaxis().labelpad = -35
+        cbar.ax.get_yaxis().labelpad = -20
+        cbar.ax.get_yaxis().zorder = 100
+        cbar.ax.tick_params(rotation=270)
 
         # Contacts
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
-            self.axes,
+            cax=cax,
             cmap=self.cmap_contacts,
             vmin=0, vmax=self.cmap_contact_max,
-            cax=cax,
         )
         cbar.ax.set_ylabel('Contacts forces [N]', rotation=270)
-        cbar.ax.get_yaxis().labelpad = -45
+        cbar.ax.get_yaxis().labelpad = -20
+        cbar.ax.get_yaxis().zorder = 100
+        cbar.ax.tick_params(rotation=270)
 
-        # Xfrcynamics
+        # Xfrc
         cax = divider.append_axes('right', size=size, pad=pad)
         cbar = create_colorbar(
-            axes=self.axes,
+            cax=cax,
             cmap=self.cmap_xfrc,
             vmin=0, vmax=self.cmap_xfrc_max,
-            cax=cax,
         )
-        cbar.ax.set_ylabel('Xfrc forces [N]', rotation=270)
-        cbar.ax.get_yaxis().labelpad = -50
+        cbar.set_label('External forces [N]', rotation=270)
+        cbar.ax.get_yaxis().labelpad = -20
+        cbar.ax.get_yaxis().zorder = 100
+        cbar.ax.tick_params(rotation=270)
 
         # Animation
         self.animation = FuncAnimation(
@@ -345,19 +362,23 @@ class NetworkFigure:
         )
 
     def animation_init(self):
-        """Animation  init"""
+        """Animation init"""
         return self.animation_elements()
 
     def animation_update(self, frame):
         """Animation update"""
+
         # Time
-        iteration = np.rint(frame/self.n_frames*self.n_iterations).astype(int)
+        iteration = np.rint(frame/self.n_frames*(self.n_iterations-1)).astype(int)
         self.time.set_text(f'Time: {frame*1e-3*self.interval:02.1f} [s]')
 
         # Oscillator
-        phases = self.data.state.phases(iteration)
-        for oscillator, phase in zip(self.oscillators, phases):
-            value = 0.5*(1+np.cos(phase))
+        for oscillator, phase, amplitude in zip(
+                self.oscillators,
+                self.data.state.phases(iteration),
+                self.data.state.amplitudes(iteration),
+        ):
+            value = (0.5 if amplitude > 1e-3 else amplitude)*(1+np.cos(phase))
             oscillator.set_facecolor(self.cmap_phases(value))
 
         # Drive
@@ -376,9 +397,9 @@ class NetworkFigure:
         joints = self.data.sensors.joints
         for joint_i, joint in enumerate(self.joint_sensors):
             value = np.clip(
-                a=np.linalg.norm(joints.position(iteration, joint_i)),
-                a_min=0,
-                a_max=self.cmap_joint_max,
+                a=joints.position(iteration, joint_i),
+                a_min=-self.cmap_joint_max,
+                a_max=+self.cmap_joint_max,
             )
             joint.set_facecolor(self.cmap_joints(value/self.cmap_joint_max))
 
@@ -434,9 +455,10 @@ class NetworkFigure:
         use_colorbar = kwargs.pop('use_colorbar', False)
         show_text = kwargs.pop('show_text', True)
         leg_osc_width = kwargs.pop('leg_osc_width', 1 if is_large else 1)
+        figsize = kwargs.pop('figsize', (12, 10))
 
         # Create figure
-        self.figure = plt.figure(num=title, figsize=(12, 10))
+        self.figure = plt.figure(num=title, figsize=figsize)
         self.axes = plt.gca()
         self.axes.cla()
         if show_title:
@@ -457,7 +479,7 @@ class NetworkFigure:
 
         # Colorbar
         if use_colorbar:
-            cmap = plt.get_cmap(kwargs.pop('cmap', 'viridis'))
+            cmap = plt.get_cmap(kwargs.pop('cmap', 'cividis'))
 
         # Oscillators
         leg_pos = [
@@ -507,26 +529,25 @@ class NetworkFigure:
         )
 
         options = {}
-        use_weights = use_colorbar and kwargs.pop('oscillator_weights', False)
+        vmin, vmax = 0, 1
+
+        # Oscillator weights
+        oscillator_weights = kwargs.pop('oscillator_weights', False)
+        use_weights = use_colorbar and oscillator_weights
         if use_weights:
             if connections.any():
                 options['weights'] = connections[:, 2]
                 vmin = np.min(connections[:, 2])
                 vmax = np.max(connections[:, 2])
-            else:
-                options['weights'] = []
-                vmin, vmax = 0, 1
 
-        options = {}
-        use_weights = use_colorbar and kwargs.pop('oscillator_phases', False)
+        # Oscillator phases
+        oscillator_phases = kwargs.pop('oscillator_phases', False)
+        use_weights = use_colorbar and oscillator_phases
         if use_weights:
             if connections.any():
-                options['weights'] = connections[:, 3]
+                options['phases'] = connections[:, 3]
                 vmin = np.min(connections[:, 3])
                 vmax = np.max(connections[:, 3])
-            else:
-                options['weights'] = []
-                vmin, vmax = 0, 1
 
         self.oscillators, self.oscillators_texts, oscillators_connectivity = draw_network(
             source=oscillator_positions,
@@ -561,7 +582,7 @@ class NetworkFigure:
             weights=[],
         )
 
-        # Joints
+        # Joints data
         joints_positions = np.array(
             [
                 [-(2*osc_x), 0]
@@ -588,8 +609,11 @@ class NetworkFigure:
             )
             if joint_conn_cond(connection[0], connection[1])
         ]) if self.data.network.joints2osc_map.connections.array else np.empty(0)
+
+        # Joints plot
         options = {}
-        use_weights = use_colorbar and kwargs.pop('joints_weights', False)
+        joints_weights = kwargs.pop('joints_weights', False)
+        use_weights = use_colorbar and joints_weights
         if use_weights:
             if connections.any():
                 options['weights'] = connections[:, 2]
@@ -641,7 +665,8 @@ class NetworkFigure:
             if contact_conn_cond(connection[0], connection[1])
         ]) if self.data.network.contacts2osc_map.connections.array else np.empty(0)
         options = {}
-        use_weights = use_colorbar and kwargs.pop('contacts_weights', False)
+        contacts_weights = kwargs.pop('contacts_weights', False)
+        use_weights = use_colorbar and contacts_weights
         if use_weights:
             if connections.any():
                 options['weights'] = connections[:, 2]
@@ -695,14 +720,21 @@ class NetworkFigure:
                     for connection in connections
                     if (
                         xfrc_frequency_weights
-                        and connection[2] == ConnectionType.LATERAL2FREQ
+                        and connection[2] in (
+                            ConnectionType.LATERAL2FREQTEGOTAE,
+                            ConnectionType.LATERAL2FREQCOS,
+                            ConnectionType.LATERAL2FREQ,
+                        )
                     ) or (
                         xfrc_amplitude_weights
                         and connection[2] == ConnectionType.LATERAL2AMP
                     )
                 ]
-                vmin = np.min(options['weights'])
-                vmax = np.max(options['weights'])
+                if options['weights']:
+                    vmin = np.min(options['weights'])
+                    vmax = np.max(options['weights'])
+                else:
+                    vmin, vmax = 0, 1
             else:
                 options['weights'] = []
                 vmin, vmax = 0, 1
@@ -717,7 +749,11 @@ class NetworkFigure:
                 if (not xfrc_frequency_weights and not xfrc_amplitude_weights)
                 or (
                     xfrc_frequency_weights
-                    and connection[2] == ConnectionType.LATERAL2FREQ
+                    and connection[2] in (
+                        ConnectionType.LATERAL2FREQTEGOTAE,
+                        ConnectionType.LATERAL2FREQCOS,
+                        ConnectionType.LATERAL2FREQ,
+                    )
                 ) or (
                     xfrc_amplitude_weights
                     and connection[2] == ConnectionType.LATERAL2AMP
@@ -733,7 +769,7 @@ class NetworkFigure:
         ) if self.data.network.xfrc2osc_map.connections.array else [[]]*3
 
         # Show elements
-        [
+        show_elements = [
             show_oscillators,
             show_drives,
             show_joints,
@@ -759,6 +795,7 @@ class NetworkFigure:
                 'show_xfrc_connectivity',
             ]
         ]
+        assert not kwargs, kwargs
         if show_oscillators_connectivity:
             for arrow in oscillators_connectivity:
                 self.axes.add_artist(arrow)
@@ -814,9 +851,11 @@ class NetworkFigure:
                 self.axes.add_artist(circle)
                 if show_text:
                     self.axes.add_artist(text)
-        if use_colorbar:
-            pylog.debug('%s: %s, %s', title, vmin, vmax)
-            create_colorbar(self.axes, cmap, vmin, vmax)
+        if any(show_elements) and use_colorbar:
+            pylog.debug('Setting colormap for %s: %s, %s', title, vmin, vmax)
+            divider = make_axes_locatable(self.axes)
+            cax = divider.append_axes('right', size='5%', pad=0.05)
+            create_colorbar(cax=cax, cmap=cmap, vmin=vmin, vmax=vmax)
 
         return self.figure
 
@@ -845,9 +884,12 @@ def plot_networks_maps(
         data: AmphibiousData,
         animat_options: AmphibiousOptions,
         show_all: bool = False,
+        animation_only: bool = False,
         show_text: bool = True,
+        **kwargs,
 ):
     """Plot network maps"""
+
     # Plots
     plots = {}
 
@@ -859,9 +901,27 @@ def plot_networks_maps(
         title='Complete network',
         animat_options=animat_options,
         show_title=False,
+        # use_colorbar=True,
+        # oscillator_weights=False,
         show_text=show_text,
+        **kwargs,
     )
     network_anim.animate(convention)
+
+    if animation_only:
+        return network_anim, plots
+
+    network = NetworkFigure(morphology, data)
+    plots['network_oscillators_standalone'] = network.plot(
+        title='Network connectivity',
+        show_title=False,
+        animat_options=animat_options,
+        show_contacts_connectivity=False,
+        show_xfrc_connectivity=False,
+        use_colorbar=False,
+        oscillator_weights=False,
+        **kwargs,
+    )
 
     if show_all:
 
@@ -901,7 +961,6 @@ def plot_networks_maps(
         )
 
         # Plot network oscillator weights connectivity
-        network = NetworkFigure(morphology, data)
         plots['network_oscillators'] = network.plot(
             title='Oscillators complete connectivity',
             animat_options=animat_options,
@@ -909,6 +968,7 @@ def plot_networks_maps(
             show_xfrc_connectivity=False,
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_body2body'] = network.plot(
             title='Oscillators body2body connectivity',
@@ -918,6 +978,7 @@ def plot_networks_maps(
             osc_conn_cond=body2body,
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_body2limb'] = network.plot(
             title='Oscillators body2limb connectivity',
@@ -927,6 +988,7 @@ def plot_networks_maps(
             osc_conn_cond=body2leg,
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_limb2body'] = network.plot(
             title='Oscillators limb2body connectivity',
@@ -937,6 +999,7 @@ def plot_networks_maps(
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_limb2limb'] = network.plot(
             title='Oscillators limb2limb connectivity',
@@ -947,6 +1010,7 @@ def plot_networks_maps(
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_intralimb'] = network.plot(
             title='Oscillators intralimb connectivity',
@@ -957,6 +1021,7 @@ def plot_networks_maps(
             rads=[0.2, 0.0, 0.0],
             use_colorbar=True,
             oscillator_weights=True,
+            **kwargs,
         )
         plots['network_oscillators_interlimb'] = network.plot(
             title='Oscillators interlimb connectivity',
@@ -977,6 +1042,7 @@ def plot_networks_maps(
             show_xfrc_connectivity=False,
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_body2body'] = network.plot(
             title='Oscillators body2body phases',
@@ -986,6 +1052,7 @@ def plot_networks_maps(
             osc_conn_cond=body2body,
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_body2limb'] = network.plot(
             title='Oscillators body2limb phases',
@@ -995,6 +1062,7 @@ def plot_networks_maps(
             osc_conn_cond=body2leg,
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_limb2body'] = network.plot(
             title='Oscillators limb2body phases',
@@ -1005,6 +1073,7 @@ def plot_networks_maps(
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_limb2limb'] = network.plot(
             title='Oscillators limb2limb phases',
@@ -1015,6 +1084,7 @@ def plot_networks_maps(
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_intralimb'] = network.plot(
             title='Oscillators intralimb phases',
@@ -1025,6 +1095,7 @@ def plot_networks_maps(
             rads=[0.2, 0.0, 0.0],
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
         plots['network_phases_interlimb'] = network.plot(
             title='Oscillators interlimb phases',
@@ -1035,6 +1106,7 @@ def plot_networks_maps(
             rads=[0.05, 0.0, 0.0],
             use_colorbar=True,
             oscillator_phases=True,
+            **kwargs,
         )
 
         # Plot contacts connectivity
@@ -1045,6 +1117,7 @@ def plot_networks_maps(
             show_xfrc_connectivity=False,
             use_colorbar=True,
             contacts_weights=True,
+            **kwargs,
         )
         plots['network_contacts_intralimb'] = network.plot(
             title='Contacts intralimb connectivity',
@@ -1054,6 +1127,7 @@ def plot_networks_maps(
             contact_conn_cond=contact2sameleg,
             use_colorbar=True,
             contacts_weights=True,
+            **kwargs,
         )
         plots['network_contacts_interlimb'] = network.plot(
             title='Contacts interlimb connectivity',
@@ -1063,6 +1137,7 @@ def plot_networks_maps(
             contact_conn_cond=contact2diffleg,
             use_colorbar=True,
             contacts_weights=True,
+            **kwargs,
         )
 
         # Plot xfrc connectivity
@@ -1071,6 +1146,7 @@ def plot_networks_maps(
             animat_options=animat_options,
             show_oscillators_connectivity=False,
             show_contacts_connectivity=False,
+            **kwargs,
         )
         plots['network_xfrc_frequency'] = network.plot(
             title='Xfrc frequency connectivity',
@@ -1079,6 +1155,7 @@ def plot_networks_maps(
             show_contacts_connectivity=False,
             use_colorbar=True,
             xfrc_frequency_weights=True,
+            **kwargs,
         )
         plots['network_xfrc_amplitude'] = network.plot(
             title='Xfrc amplitude connectivity',
@@ -1087,6 +1164,7 @@ def plot_networks_maps(
             show_contacts_connectivity=False,
             use_colorbar=True,
             xfrc_amplitude_weights=True,
+            **kwargs,
         )
 
     return network_anim, plots
