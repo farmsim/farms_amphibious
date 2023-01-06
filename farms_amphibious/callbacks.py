@@ -60,8 +60,9 @@ class SwimmingCallback(TaskCallback):
             self,
             animat_options: AmphibiousOptions,
             arena_options: AmphibiousArenaOptions,
+            substep=True,
     ):
-        super().__init__()  # substep=True
+        super().__init__(substep=substep)
         self.animat_options = animat_options
         self.arena_options = arena_options
         self._handler: SwimmingHandler = None
