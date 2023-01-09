@@ -55,7 +55,7 @@ def connect_positions(source, destination, dir_shift, perp_shift):
     return new_source, new_destination
 
 
-def draw_nodes(positions, radius, color, prefix, show_text=True):
+def draw_nodes(positions, radius, color, prefix, show_text=True, **kwargs):
     """Draw nodes"""
     nodes = [
         plt.Circle(
@@ -65,6 +65,7 @@ def draw_nodes(positions, radius, color, prefix, show_text=True):
             edgecolor=0.7*np.array(colorConverter.to_rgb(color)),
             linewidth=2,
             animated=True,
+            **kwargs,
         )  # fill=False, clip_on=False
         for position in positions
     ]
@@ -73,7 +74,7 @@ def draw_nodes(positions, radius, color, prefix, show_text=True):
         plt.text(
             # position[0]+radius, position[1]+radius,
             position[0], position[1],
-            f'{prefix}{i}',
+            f'{prefix}{i}' if prefix else '',
             # transform=axes.transAxes,
             # va='bottom',
             # ha='left',
@@ -153,10 +154,10 @@ def draw_network(source, destination, radius, connectivity, **kwargs):
     show_text = kwargs.pop('show_text', True)
     options = {}
     alpha = kwargs.pop('alpha')
+    weights = kwargs.pop('weights', [])
     if color_arrows is None:
         color_arrows = colorConverter.to_rgb(color_nodes)
     else:
-        weights = kwargs.pop('weights')
         if list(weights):
             weight_min = np.min(weights)
             weight_max = np.max(weights)
@@ -176,6 +177,7 @@ def draw_network(source, destination, radius, connectivity, **kwargs):
         color=color_nodes,
         prefix=prefix,
         show_text=show_text,
+        **kwargs,
     )
     node_connectivity = draw_connectivity(
         sources=source,
@@ -349,10 +351,10 @@ class NetworkFigure:
     def animation_elements(self):
         """Animation elements"""
         return [self.time] + (
-            self.oscillators
-            + self.oscillators_texts
-            + self.drives
+            self.drives
             + self.drives_texts
+            + self.oscillators
+            + self.oscillators_texts
             + self.joint_sensors
             + self.joint_sensor_texts
             + self.contact_sensors
@@ -383,8 +385,6 @@ class NetworkFigure:
 
         # Drive
         drives_array = self.data.network.drives.array[iteration]
-        for drive, value in zip(self.drives, drives_array):
-            drive.set_facecolor(self.cmap_drives(value))
         for drive_i, drive in enumerate(self.drives):
             value = np.clip(
                 a=drives_array[drive_i],
@@ -454,6 +454,7 @@ class NetworkFigure:
         rads = kwargs.pop('rads', [0.02 if is_large else 0.2, 0.0, 0.0])
         use_colorbar = kwargs.pop('use_colorbar', False)
         show_text = kwargs.pop('show_text', True)
+        show_drives = kwargs.pop('show_drives', True)
         leg_osc_width = kwargs.pop('leg_osc_width', 1 if is_large else 1)
         figsize = kwargs.pop('figsize', (12, 10))
 
@@ -564,28 +565,30 @@ class NetworkFigure:
         )
 
         # Drives
-        drives_positions = np.array([
+        drives_front = len(animat_options.control.network.drives) == 2
+        drives_positions = [] if not show_drives else np.array([
             [2, +2],
             [2, -2],
-        ])
+        ]) if drives_front else oscillator_positions
         self.drives, self.drives_texts, drive2osc_map = draw_network(
             source=drives_positions,
             destination=oscillator_positions,
-            radius=1.2*radius,
+            radius=1.2*radius if drives_front else 1.5*radius,
             connectivity=[],
-            prefix='D',
+            prefix='D' if drives_front else '',
             rad=rads[1],
             color_nodes='C0',
             color_arrows=None,
             alpha=alpha,
             show_text=show_text,
             weights=[],
+            zorder=0,
         )
 
         # Joints data
         joints_positions = np.array(
             [
-                [-(2*osc_x), 0]
+                [-body_x_space*osc_x, 0]
                 for osc_x in range(convention.n_joints_body)
             ] + [
                 [
@@ -648,7 +651,7 @@ class NetworkFigure:
                 for leg_x in leg_pos
                 for side_y in [1, -1]
             ] + [
-                [-(2*osc_x+1-0.3), 0]
+                [-(body_x_space*(osc_x+0.5)-0.3), 0]
                 for osc_x in range(-1, convention.n_joints_body)
             ]
         ) if animat_options.control.sensors.contacts else []
@@ -691,13 +694,10 @@ class NetworkFigure:
 
         # Xfrc
         xfrc_positions = np.array([
-            [-(2*osc_x+1+0.3), 0]
+            [-(body_x_space*(osc_x+0.5)+0.3), 0]
             for osc_x in range(-1, convention.n_joints_body)
         ])
-        xfrc_conn_cond = kwargs.pop(
-            'xfrc_conn_cond',
-            lambda osc0, osc1: True
-        )
+        xfrc_conn_cond = kwargs.pop('xfrc_conn_cond', lambda osc0, osc1: True)
         connections = np.array([
             [connection[0], connection[1], connection[2], weight]
             for connection, weight in zip(
@@ -771,7 +771,6 @@ class NetworkFigure:
         # Show elements
         show_elements = [
             show_oscillators,
-            show_drives,
             show_joints,
             show_contacts,
             show_xfrc,
@@ -784,7 +783,6 @@ class NetworkFigure:
             kwargs.pop(key, True)
             for key in [
                 'show_oscillators',
-                'show_drives',
                 'show_joints',
                 'show_contacts',
                 'show_xfrc',
@@ -920,6 +918,19 @@ def plot_networks_maps(
         show_xfrc_connectivity=False,
         use_colorbar=False,
         oscillator_weights=False,
+        **kwargs,
+    )
+
+    network = NetworkFigure(morphology, data)
+    plots['network_oscillators_standalone_nodrives'] = network.plot(
+        title='Network connectivity (no_drives)',
+        show_title=False,
+        animat_options=animat_options,
+        show_contacts_connectivity=False,
+        show_xfrc_connectivity=False,
+        use_colorbar=False,
+        oscillator_weights=False,
+        show_drives=False,
         **kwargs,
     )
 
