@@ -89,7 +89,7 @@ def plot_motion(plots, exp_data):
         xdata='velocities',
         xlabel='Time [s]',
         x_extent=[0, duration],
-        ydata='name',
+        ydata='label',
         ylabel='Experiments',
         clabel='Velocity [m/s]',
         cmap='cividis',
