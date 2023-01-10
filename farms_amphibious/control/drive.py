@@ -105,7 +105,8 @@ class DescendingDrive(ABC):
 
     def __init__(self, drives):
         super().__init__()
-        self._drives = drives
+        self.drives = drives
+        self.n_drives = np.shape(drives.array)[1]
         self.n_iterations = np.shape(drives.array)[0]
         self.setpoints = np.zeros(self.n_iterations)
         self.control = np.zeros(self.n_iterations)
@@ -117,19 +118,33 @@ class DescendingDrive(ABC):
 
     def get_left_drive(self, iteration):
         """Get forward drive"""
-        return self._drives.array[min(iteration, self.n_iterations-1), 0]
+        return self.drives.array[
+            min(iteration, self.n_iterations-1),
+            self.drives.left_indices[0],
+        ]
 
     def get_right_drive(self, iteration):
         """Get turn drive"""
-        return self._drives.array[min(iteration, self.n_iterations-1), 1]
+        return self.drives.array[
+            min(iteration, self.n_iterations-1),
+            self.drives.right_indices[0],
+        ]
 
-    def set_left_drive(self, iteration, value):
+    def set_left_drive(self, iteration, values):
         """Set forward drive"""
-        self._drives.array[min(iteration, self.n_iterations-1), 0] = value
+        for index in self.drives.left_indices:
+            self.drives.array[
+                min(iteration, self.n_iterations-1),
+                index,
+            ] = values[index]
 
-    def set_right_drive(self, iteration, value):
+    def set_right_drive(self, iteration, values):
         """Set turn drive"""
-        self._drives.array[min(iteration, self.n_iterations-1), 1] = value
+        for index in self.drives.right_indices:
+            self.drives.array[
+                min(iteration, self.n_iterations-1),
+                index,
+            ] = values[index]
 
 
 class OrientationFollower(DescendingDrive):
@@ -139,7 +154,7 @@ class OrientationFollower(DescendingDrive):
         self.strategy = strategy
         self.animat_data = animat_data
         super().__init__(drives=animat_data.network.drives)
-        self.indices = np.array(kwargs.pop('links_indices', [0]))
+        self.links_indices = np.array(kwargs.pop('links_indices', [0]))
         self.heading_offset = kwargs.pop('heading_offset', 0)
         self.contact_threshold = kwargs.pop('contact_threshold', 0)
         self.pid = PID(
@@ -147,10 +162,11 @@ class OrientationFollower(DescendingDrive):
             Ki=kwargs.pop('pid_i', 0.0),
             Kd=kwargs.pop('pid_d', 0.0),
             sample_time=timestep,
-            output_limits=kwargs.pop('output_limits', (-0.5, 0.5)),
+            output_limits=kwargs.pop('output_limits', (-0.9, 0.9)),
         )
-        self.value = 0
-        self.fwd = 0
+        self.contacts_values = np.zeros(self.n_drives)
+        self.fwds = np.zeros(self.n_drives)
+        self.fwds_raw = np.zeros(self.n_drives)
         self.turn = 0
         assert not kwargs, kwargs
 
@@ -164,38 +180,45 @@ class OrientationFollower(DescendingDrive):
         error = ((command - heading + np.pi) % (2*np.pi)) - np.pi
         return -(self.pid(command-error, dt=timestep))
 
-    def get_foward_control(self, iteration, timestep, indices):
+    def get_foward_control(self, iteration, timestep):
         """Update drive"""
         # xfrc = np.array(
         #     self.animat_data.sensors.xfrc.forces(),
         #     copy=False,
         # )[iteration, indices, :]
         # condition_xfrc = np.count_nonzero(xfrc) < int(0.85*len(indices)*3)
+        threshold = 9.81*self.contact_threshold
         contacts = np.array(
             self.animat_data.sensors.contacts.totals()[iteration],
             copy=True,
-        )[indices]
+        )  # [indices]
+
+        # All
         contacts_sum = np.sum(np.abs(contacts))
-        self.value += max(100*timestep, 1)*(contacts_sum - self.value)
-        contacts_condition = self.value > 9.81*self.contact_threshold
-        return 2 if contacts_condition else 4
+        self.contacts_values += min(10*timestep, 1)*(
+            contacts_sum - self.contacts_values
+        )
+
+        self.fwds_raw = np.where(self.contacts_values > threshold, 2, 4)
+        return self.fwds_raw
 
     def update(self, iteration, timestep, pos, heading):
         """Update drive"""
         self.setpoints[iteration] = self.update_turn_command(pos=pos)
-        self.turn += max(100*timestep, 1)*(self.get_turn_control(
+        drive_turn = self.get_turn_control(
             iteration=iteration,
             timestep=timestep,
             command=self.setpoints[iteration],
             heading=heading,
-        ) - self.turn)
-        self.fwd += max(100*timestep, 1)*(self.get_foward_control(
+        )
+        self.turn += min(100*timestep, 1)*(drive_turn - self.turn)
+        drive_fwds = self.get_foward_control(
             iteration=iteration,
             timestep=timestep,
-            indices=self.indices,
-        )-self.fwd)
-        self.set_left_drive(iteration=iteration, value=self.fwd+self.turn)
-        self.set_right_drive(iteration=iteration, value=self.fwd-self.turn)
+        )
+        self.fwds += min(100*timestep, 1)*(drive_fwds-self.fwds)
+        self.set_left_drive(iteration=iteration, values=self.fwds-self.turn)
+        self.set_right_drive(iteration=iteration, values=self.fwds+self.turn)
         self.control[iteration] = self.turn
         return self.setpoints[iteration], self.control[iteration]
 
@@ -206,11 +229,11 @@ class OrientationFollower(DescendingDrive):
             timestep=timestep,
             pos=np.array(self.animat_data.sensors.links.urdf_position(
                 iteration=iteration,
-                link_i=self.indices[0],
+                link_i=self.links_indices[0],
             )),
             heading=self.animat_data.sensors.links.heading(
                 iteration=iteration,
-                indices=self.indices,
+                indices=self.links_indices,
             )+self.heading_offset,
         )
 

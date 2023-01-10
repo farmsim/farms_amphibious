@@ -76,6 +76,21 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
         return self.amplitudes(iteration)*(1 + np.cos(self.phases(iteration)))
 
 
+
+cdef class DriveArrayCy(DoubleArray2D):
+    """Drive array"""
+
+    def __init__(
+            self,
+            array: NDArray[(Any, Any), np.double],
+            left_indices: NDArray[(Any,), np.uintc],
+            right_indices: NDArray[(Any,), np.uintc],
+    ):
+        super().__init__(array=array)
+        self.left_indices = np.array(left_indices, dtype=np.uintc)
+        self.right_indices = np.array(right_indices, dtype=np.uintc)
+
+
 cdef class DriveDependentArrayCy(DoubleArray2D):
     """Drive dependent array"""
 

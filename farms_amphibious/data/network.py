@@ -165,13 +165,29 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
 class DriveArray(DriveArrayCy):
     """Drive array"""
 
+    def __init__(
+            self,
+            array: NDARRAY_V2_D,
+            left_indices: NDARRAY_V1_I,
+            right_indices: NDARRAY_V1_I,
+            contacts_indices: List[List[int]] = None,
+    ):
+        super().__init__(
+            array=array,
+            left_indices=left_indices,
+            right_indices=right_indices,
+        )
+        self.contacts_indices = contacts_indices
+
     @classmethod
-    def from_initial_drive(
+    def from_animat_options(
             cls,
-            initial_drives: List[float],
+            animat_options: AmphibiousOptions,
             n_iterations: int,
     ):
         """From initial drive"""
+        control = animat_options.control
+        initial_drives = control.network.drives_init()
         drive_size = len(initial_drives)
         drive_array = np.full(
             shape=[n_iterations, drive_size],
@@ -179,7 +195,47 @@ class DriveArray(DriveArrayCy):
             dtype=NPDTYPE,
         )
         drive_array[0, :] = initial_drives
-        return cls(drive_array)
+        return cls(
+            array=drive_array,
+            left_indices=control.network.drives_left_indices(),
+            right_indices=control.network.drives_right_indices(),
+            contacts_indices=control.drives_contacts_indices(),
+        )
+
+    @classmethod
+    def from_dict(cls, dictionary: Dict):
+        """Load data from dictionary"""
+        contacts_indices = [
+            [index for index in indices if not index < 0]
+            for indices in dictionary['contacts_indices']
+        ]
+        return cls(
+            array=dictionary['array'],
+            left_indices=dictionary['left_indices'],
+            right_indices=dictionary['right_indices'],
+            contacts_indices=contacts_indices,
+        )
+
+    def to_dict(self, iteration: int = None) -> Dict:
+        """Convert data to dictionary"""
+        assert iteration is None or isinstance(iteration, int)
+        contacts_indices = self.contacts_indices
+        if contacts_indices:
+            maxlen = max(len(indices) for indices in contacts_indices)
+            contacts_indices = np.full(
+                shape=[len(contacts_indices), maxlen],
+                fill_value=-1,
+            )
+            positives =  np.arange(self.array.shape[0])
+            for indices_i, indices in enumerate(self.contacts_indices):
+                for index_i, index in enumerate(indices):
+                    contacts_indices[indices_i, index_i] = positives[index]
+        return {
+            'array': self.array,
+            'left_indices': to_array(self.left_indices),
+            'right_indices': to_array(self.right_indices),
+            'contacts_indices': contacts_indices,
+        }
 
     def plot(
             self,
@@ -435,7 +491,7 @@ class NetworkParameters(NetworkParametersCy):
     def from_dict(cls, dictionary: Dict):
         """Load data from dictionary"""
         return cls(
-            drives=DriveArray(
+            drives=DriveArray.from_dict(
                 dictionary['drives']
             ),
             oscillators=Oscillators.from_dict(
@@ -459,7 +515,7 @@ class NetworkParameters(NetworkParametersCy):
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
-            'drives': to_array(self.drives.array),
+            'drives': self.drives.to_dict(),
             'oscillators': self.oscillators.to_dict(),
             'osc2osc_map': self.osc2osc_map.to_dict(),
             'joints2osc_map': self.joints2osc_map.to_dict(),

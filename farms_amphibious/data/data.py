@@ -145,8 +145,8 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         # Network
         network = (
             NetworkParameters(
-                drives=DriveArray.from_initial_drive(
-                    initial_drives=animat_options.control.network.drives_init(),
+                drives=DriveArray.from_animat_options(
+                    animat_options=animat_options,
                     n_iterations=simulation_options.n_iterations,
                 ),
                 oscillators=oscillators,
