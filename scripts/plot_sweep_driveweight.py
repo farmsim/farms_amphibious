@@ -55,6 +55,7 @@ def load_experiment(sweep_type, exp_data, log, label):
         'drivecoupling': get_weight_osc,
         'drivestretch': get_weight_stretch,
         'drivexfrc': get_weight_xfrc,
+        'drivexfrccos': get_weight_xfrc,
     }[sweep_type](animat_options)
 
     # Torques integral
@@ -122,11 +123,13 @@ def plot_driveweight(plots, exp_data, sweep_type):
         'drivecoupling': 'Coupling weight',
         'drivestretch': 'Stretch feedback weight',
         'drivexfrc': 'Hydrodynamics feedback weight',
+        'drivexfrccos': 'Hydrodynamics feedback weight',
     }[sweep_type]
     identifier_weight = {
         'drivecoupling': 'coupling',
         'drivestretch': 'stretch',
         'drivexfrc': 'xfrc',
+        'drivexfrccos': 'xfrccos',
     }[sweep_type]
 
     # Velocities
@@ -213,7 +216,7 @@ def plot_driveweight(plots, exp_data, sweep_type):
         zdata='cot',
         xlabel='Drive',
         ylabel=label_weight,
-        zlabel=f'Cost of transport: {equation_cot}',
+        zlabel=f'CoT: {equation_cot}',
         log=True,
     )
     conditional_plot(
@@ -227,7 +230,7 @@ def plot_driveweight(plots, exp_data, sweep_type):
         zdata='cot{}',
         xlabel='Drive',
         ylabel=label_weight,
-        zlabel='Cost of transport: {equation}',
+        zlabel='CoT: {equation}',
         equation=equation_cot2,
         log=True,
     )
@@ -259,7 +262,7 @@ def plot_driveweight(plots, exp_data, sweep_type):
         zdata='cot',
         xlabel='Velocity [m/s]',
         ylabel=label_weight,
-        zlabel=f'Cost of transport: {equation_cot}',
+        zlabel=f'CoT: {equation_cot}',
         log=True,
     )
     conditional_plot(
@@ -273,7 +276,7 @@ def plot_driveweight(plots, exp_data, sweep_type):
         zdata='cot{}',
         xlabel='Velocity [m/s]',
         ylabel=label_weight,
-        zlabel='Cost of transport: {equation}',
+        zlabel='CoT: {equation}',
         equation=equation_cot2,
         log=True,
     )
