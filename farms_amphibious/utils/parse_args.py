@@ -368,3 +368,72 @@ def parse_args_postprocessing(*args, **kwargs):
     """Parse args"""
     parser = parser_postprocessing(*args, **kwargs)
     return parser.parse_args()
+
+
+def parser_sweep(description='Plot amphibious sweep') -> argparse.ArgumentParser:
+    """Parse args"""
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=(
+            lambda prog:
+            argparse.HelpFormatter(prog, max_help_position=50)
+        ),
+    )
+    parser.add_argument(
+        '--type',
+        type=str,
+        help='Sweep type',
+    )
+    parser.add_argument(
+        '--extension',
+        type=str,
+        help='Output extension',
+    )
+    parser.add_argument(
+        '-l', '--logs',
+        metavar='log1 log2 ...',
+        type=str,
+        nargs='+',
+        default=[],
+        help='Sweep logs folders',
+    )
+    parser.add_argument(
+        '--names',
+        metavar='name1 name2 ...',
+        type=str,
+        nargs='+',
+        default=[],
+        help='Sweep experiments names',
+    )
+    parser.add_argument(
+        '--labels',
+        metavar='label1 label2 ...',
+        type=str,
+        nargs='+',
+        default=[],
+        help='Sweep experiments labels',
+    )
+    parser.add_argument(
+        '--output',
+        type=str,
+        help='Output path',
+    )
+    return parser
+
+
+def validate_sweep_clargs(clargs):
+    """Validate sweep command line arguments"""
+    assert len(clargs.logs) == len(clargs.names), (
+        f'{len(clargs.logs)=} != {len(clargs.names)=}'
+    )
+    assert len(clargs.logs) == len(clargs.labels), (
+        f'{len(clargs.logs)=} != {len(clargs.labels)=}'
+    )
+
+
+def parse_args_sweep(*args, **kwargs):
+    """Parse args"""
+    parser = parser_sweep(*args, **kwargs)
+    clargs = parser.parse_args()
+    validate_sweep_clargs(clargs)
+    return clargs
