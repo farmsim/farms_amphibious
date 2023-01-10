@@ -324,3 +324,47 @@ def parse_args_model_gen(*args, **kwargs):
     """Parse args"""
     parser = parser_model_gen(*args, **kwargs)
     return parser.parse_args()
+
+
+def parser_postprocessing(description='Amphibious simulation post-processing'):
+    """Parse args"""
+    parser = argparse.ArgumentParser(
+        description=description,
+        formatter_class=(
+            lambda prog:
+            argparse.HelpFormatter(prog, max_help_position=50)
+        ),
+    )
+    parser.add_argument(
+        '--data',
+        type=str,
+        help='Animat data',
+    )
+    parser.add_argument(
+        '--animat',
+        type=str,
+        help='Animat options',
+    )
+    parser.add_argument(
+        '--simulation',
+        type=str,
+        help='Simulation options',
+    )
+    parser.add_argument(
+        '--drive_config',
+        type=str,
+        default='',
+        help='Descending drive method',
+    )
+    parser.add_argument(
+        '--output',
+        type=str,
+        help='Output path',
+    )
+    return parser
+
+
+def parse_args_postprocessing(*args, **kwargs):
+    """Parse args"""
+    parser = parser_postprocessing(*args, **kwargs)
+    return parser.parse_args()
