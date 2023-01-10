@@ -1,10 +1,7 @@
-"""Plot data"""
+"""Plot connectivity"""
 
 import os
 import argparse
-
-from cycler import cycler
-import matplotlib.pyplot as plt
 
 from farms_core import pylog
 from farms_core.analysis.plot import plt_farms_style
@@ -12,16 +9,6 @@ from farms_core.analysis.plot import plt_farms_style
 from farms_amphibious.data.data import AmphibiousData
 from farms_amphibious.model.options import AmphibiousOptions
 from farms_amphibious.utils.network import plot_networks_maps
-
-plt.rc('axes', prop_cycle=(
-    cycler(linestyle=['-', '--', '-.', ':'])
-    * cycler(color=plt.rcParams['axes.prop_cycle'].by_key()['color'])
-))
-plt.rcParams.update({
-    'text.usetex': True,
-    'font.family': 'serif',
-    'font.serif': ['Palatino'],
-})
 
 
 def parse_args():
@@ -80,7 +67,7 @@ def main():
         plot_networks_maps(
             data=animat_data,
             animat_options=animat_options,
-            show_all=True,
+            show_all=False,
         )[1]
         if animat_options.morphology.n_dof_legs <= 4
         else {}
