@@ -3,72 +3,12 @@
 import os
 
 from farms_core import pylog
-from farms_core.io.yaml import yaml2pyobject
 from farms_core.utils.profile import profile
-from farms_core.analysis.plot import plt_farms_style  # grid, plt_legend_side,
+from farms_core.analysis.plot import plt_farms_style
 
-from farms_amphibious.model.options import AmphibiousOptions
+from farms_amphibious.analysis.sweep import load_data_drive
+from farms_amphibious.analysis.plot import plot_element, plot_multi_exponent
 from farms_amphibious.utils.parse_args import parse_args_sweep
-from farms_amphibious.analysis.plot import (
-    plot_element,
-    plot_multi_exponent,
-)
-
-
-def load_experiment(_sweep_type, exp_data, log, label):
-    """Load experiment"""
-
-    # Load
-    animat_options_path = os.path.join(log, 'animat_options.yaml')
-    animat_options = AmphibiousOptions.load(animat_options_path)
-    analysis = yaml2pyobject(os.path.join(log, 'analysis.yaml'))
-
-    # Get drive
-    drive = animat_options.control.network.drives[0].initial_value
-
-    # Torques integral
-    torque_integrals = [
-        analysis['metrics'][f'torque_integral{exponent}']
-        for exponent in range(1, 5)
-    ]
-
-    # Average velocity
-    average_velocity = analysis['metrics']['velocity']
-    average_velocity_bl = average_velocity/analysis['morphology']['bodylength']
-
-    # Data
-    if label not in exp_data:
-        exp_data[label] = []
-    metrics = {
-        'drive': drive,
-        'average_velocity': average_velocity,
-        'average_velocity_bl': average_velocity_bl,
-        'n_legs': animat_options.morphology.n_legs,
-    }
-    metrics.update({
-        f'torque_integral{1+i}': torque_integrals[i]
-        for i in range(4)
-    })
-    metrics.update({
-        f'cot{i+1}': torque_integrals[i]/average_velocity
-        for i in range(4)
-    })
-    for key, value in analysis['metrics']['frequency'].items():
-        metrics[f'frequency_{key}'] = value
-    metrics['cot'] = analysis['metrics']['cot']
-    exp_data[label].append(metrics)
-
-    # Gaits
-    for key, value in analysis['metrics']['gait'].items():
-        exp_data[label][-1][f'gait_{key}'] = value
-
-
-def load_data(sweep_type, logs):
-    """Load data"""
-    exp_data = {}
-    for log, label in logs:
-        load_experiment(sweep_type, exp_data, log, label)
-    return exp_data
 
 
 def conditional_plot(conditions, function, plot_name, **kwargs):
@@ -97,7 +37,7 @@ def plot_drive(plots, exp_data):
         {
             'suffix': '_swm',
             'condition': lambda drive: drive > 3,
-        }
+        },
     ]
 
     # Velocities
@@ -173,7 +113,7 @@ def plot_drive(plots, exp_data):
         xdata='drive',
         ydata='cot',
         xlabel='Drive',
-        ylabel=f'Cost of transport: {equation_cot}',
+        ylabel=f'CoT: {equation_cot}',
     )
     conditional_plot(
         conditions=conditions,
@@ -185,7 +125,7 @@ def plot_drive(plots, exp_data):
         ydata='cot{}',
         xlabel='Drive',
         equation=equation_cot2,
-        ylabel='Cost of transport: {equation}',
+        ylabel='CoT: {equation}',
     )
 
     # Velocity / Cost of transport
@@ -198,7 +138,7 @@ def plot_drive(plots, exp_data):
         xdata='average_velocity',
         ydata='cot',
         xlabel='Velocity [m/s]',
-        ylabel=f'Cost of transport: {equation_cot}',
+        ylabel=f'CoT: {equation_cot}',
     )
     conditional_plot(
         conditions=conditions,
@@ -209,7 +149,7 @@ def plot_drive(plots, exp_data):
         xdata='average_velocity_bl',
         ydata='cot',
         xlabel='Velocity [BL/s]',
-        ylabel=f'Cost of transport: {equation_cot}',
+        ylabel=f'CoT: {equation_cot}',
     )
     conditional_plot(
         conditions=conditions,
@@ -221,7 +161,7 @@ def plot_drive(plots, exp_data):
         ydata='cot{}',
         xlabel='Velocity [m/s]',
         equation=equation_cot2,
-        ylabel='Cost of transport: {equation}',
+        ylabel='CoT: {equation}',
         marker='o',
         linestyle='',
     )
@@ -294,54 +234,6 @@ def plot_drive(plots, exp_data):
         ylim=[0, 1],
     )
 
-    if list(exp_data.values())[0][0]['n_legs'] == 4:
-
-        # Gait
-        for gait_i, gait in enumerate(['Trotting', 'Sequence']):  # , 'Bound'
-            label_template = (
-                f'{{label}} - {gait}'
-                if len(exp_data) > 1
-                else gait
-            )
-            conditional_plot(
-                conditions=conditions,
-                function=plot_element,
-                plots=plots,
-                exp_data=exp_data,
-                plot_name='gait_scores',
-                xdata='drive',
-                ydata=f'gait_{gait}',
-                xlabel='Drive',
-                ylabel='Score',
-                label_template=label_template,
-                zorder_i=gait_i,
-                ylim=[0, 1],
-                show_legend=True,
-            )
-
-        # Duty cycles
-        for key_i, key in enumerate(['LF', 'RF', 'LH', 'RH']):
-            label_template = (
-                f'{{label}} - {key}'
-                if len(exp_data) > 1
-                else key
-            )
-            conditional_plot(
-                conditions=conditions,
-                function=plot_element,
-                plots=plots,
-                exp_data=exp_data,
-                plot_name='duty_factors',
-                xdata='drive',
-                ydata=f'gait_{gait}',
-                xlabel='Drive',
-                ylabel='Score',
-                label_template=label_template,
-                zorder_i=key_i,
-                ylim=[0, 1],
-                show_legend=True,
-            )
-
 
 def main():
     """Main"""
@@ -353,10 +245,7 @@ def main():
     clargs = parse_args_sweep()
 
     # Data obtained for plotting
-    exp_data = load_data(
-        sweep_type=clargs.type,
-        logs=zip(clargs.logs, clargs.labels),
-    )
+    exp_data = load_data_drive(logs=zip(clargs.logs, clargs.labels))
 
     # Plot figure
     plots = {}
