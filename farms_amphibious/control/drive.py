@@ -238,6 +238,50 @@ class OrientationFollower(DescendingDrive):
         )
 
 
+class DistributedOrientationFollower(OrientationFollower):
+    """Distributed descending drive to follow orientation"""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.intention = np.zeros(self.n_drives)
+        self.reaction = np.zeros(self.n_drives)
+        self.contact_value = 0
+
+    def get_foward_control(self, iteration, timestep):
+        """Update drive"""
+        threshold = 9.81*self.contact_threshold
+        contacts = np.array(
+            self.animat_data.sensors.contacts.totals()[iteration],
+            copy=True,
+        )
+
+        # Intention
+        self.contact_value += min(100*timestep, 1)*(
+            np.sum(np.abs(contacts)) - self.contact_value
+        )
+        self.fwds_raw[:] = 2 if self.contact_value > threshold else 4
+
+        # Reaction
+        self.contacts_values += min(100*timestep, 1)*(
+            [
+                np.sum(np.abs(contacts[indices]))
+                for indices in self.drives.contacts_indices
+            ] - self.contacts_values
+        )
+
+        # Decision
+        threshold2 = 1e-3*threshold
+        self.fwds_raw[np.logical_and(
+            self.fwds_raw > 3,
+            self.contacts_values > threshold2,
+        )] = 2.9
+        self.fwds_raw[np.logical_and(
+            self.fwds_raw < 3,
+            self.contacts_values < threshold2,
+        )] = 3.1
+
+        return self.fwds_raw
+
 
 def plotting(times, pos, drive, phi):
     """Plotting"""
@@ -362,10 +406,20 @@ def drive_from_config(filename, animat_data, simulation_options):
     drive_config = yaml2pyobject(filename)
     potential_config = drive_config.pop('potential_map')
     potential_type = potential_config.pop('type')
-    return OrientationFollower(
+    control_function = (
+        DistributedOrientationFollower
+        if potential_type in ('disline', 'discircle')
+        else OrientationFollower
+        if potential_type in ('line', 'circle')
+        else None
+    )
+    assert control_function is not None, f'Unknown {potential_type=}'
+    return control_function(
         strategy={
             'line': StraightLinePotentialMap,
             'circle': CirclePotentialMap,
+            'disline': StraightLinePotentialMap,
+            'discircle': CirclePotentialMap,
         }[potential_type](**potential_config),
         animat_data=animat_data,
         timestep=simulation_options.timestep,
