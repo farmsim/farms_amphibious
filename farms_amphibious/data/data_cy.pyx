@@ -75,6 +75,9 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
         """Outputs"""
         return self.amplitudes(iteration)*(1 + np.cos(self.phases(iteration)))
 
+    cpdef np.ndarray outputs_all(self):
+        """Outputs"""
+        return self.amplitudes_all()*(1 + np.cos(self.phases_all()))
 
 
 cdef class DriveArrayCy(DoubleArray2D):
