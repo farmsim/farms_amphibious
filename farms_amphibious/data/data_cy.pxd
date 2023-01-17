@@ -67,6 +67,7 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
     cpdef public DTYPEv1 offsets(self, unsigned int iteration)
     cpdef public DTYPEv2 offsets_all(self)
     cpdef public np.ndarray outputs(self, unsigned int iteration)
+    cpdef public np.ndarray outputs_all(self)
 
 
 cdef class DriveArrayCy(DoubleArray2D):
