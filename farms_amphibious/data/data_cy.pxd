@@ -72,6 +72,8 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
 
 cdef class DriveArrayCy(DoubleArray2D):
     """Drive array"""
+    cdef public UITYPEv1 left_indices
+    cdef public UITYPEv1 right_indices
 
 
 cdef class DriveDependentArrayCy(DoubleArray2D):
