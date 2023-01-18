@@ -40,9 +40,6 @@ cdef inline DTYPE joint_offset(
     return state[index+2*n_oscillators]
 
 
-cdef inline DTYPE saturation(DTYPE value, DTYPE multiplier) nogil:
-    """Saturation from 0 to 1"""
-    return multiplier*value/(1+multiplier*value)
 
 
 cpdef inline void ode_dphase(
