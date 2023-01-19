@@ -174,7 +174,11 @@ cpdef inline void ode_contacts(
         i0 = contacts2osc_map.connections.array[i, 0]
         i1 = contacts2osc_map.connections.array[i, 1]
         connection_type = contacts2osc_map.connections.array[i, 2]
-        contact_reaction = fabs(contacts.c_reaction_z(iteration, i1))
+        contact_reaction = sqrt(
+            contacts.c_total_x(iteration, i1)*contacts.c_total_x(iteration, i1)
+            + contacts.c_total_y(iteration, i1)*contacts.c_total_y(iteration, i1)
+            + contacts.c_total_z(iteration, i1)*contacts.c_total_z(iteration, i1)
+        )
         if connection_type == ConnectionType.REACTION2FREQ:
             dstate[i0] += (
                 contacts2osc_map.c_weight(i)
