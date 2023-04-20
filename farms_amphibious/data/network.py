@@ -19,6 +19,7 @@ from farms_core.array.types import (
     NDARRAY_V2_D,
 )
 
+from ..model.options import AmphibiousOptions
 from .data_cy import (
     ConnectionType,
     NetworkParametersCy,
