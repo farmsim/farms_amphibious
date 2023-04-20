@@ -116,6 +116,7 @@ class JointMuscleController(AnimatController):
                 joints_names=joints_names,
                 joints_control_types=joints_control_types,
             ),
+            muscles_names=[],
             max_torques=AnimatController.max_torques_from_control_types(
                 joints_names=joints_names,
                 max_torques={
