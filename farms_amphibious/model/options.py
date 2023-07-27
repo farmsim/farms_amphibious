@@ -1475,12 +1475,7 @@ class AmphibiousNetworkOptions(Options):
                 kwargs.pop('weight_sens_xfrc_amp_up', 0),
                 kwargs.pop('weight_sens_xfrc_amp_down', 0),
             )
-        if self.drive2osc is None:
-            self.drive2osc = [
-                info['side']  # Body
-                if (info := convention.oscindex2information(osc_i))['body']
-                else info['side_i']  # Limbs
-                for osc_i, _ in enumerate(self.oscillators)
+
         # Drives
         if not self.drives:
             self.drives = [
