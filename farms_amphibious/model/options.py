@@ -68,7 +68,7 @@ def options_kwargs_int_list_keys():
 
 def options_kwargs_str_keys():
     """Options kwargs string keys"""
-    return ['kinematics_file']
+    return ['drive_contact_type', 'kinematics_file']
 
 
 def options_kwargs_str_list_keys():
@@ -228,14 +228,35 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                 'n_joints_body', 'n_dof_legs', 'n_legs',
                 'links_names', 'joints_names',
         ]:
-            if kwarg in kwargs:
+            if kwarg in kwargs.copy():
                 options[kwarg] = kwargs.pop(kwarg)
         convention = AmphibiousConvention(**options)
+        default_lateral_friction = kwargs.pop('default_lateral_friction', 1)
+        # Feet handling
+        feet_links = kwargs.pop('feet_links', None)
+        if feet_links is None:
+            feet_links = convention.feet_links_names()
+        else:  # Feet defined and to be attributed
+            feet_indices = [
+                convention.leglink2index(
+                    leg_i=leg_i,
+                    side_i=side_i,
+                    joint_i=convention.n_dof_legs-1,
+                )
+                for leg_i in range(convention.n_legs//2)
+                for side_i in range(2)
+            ]
+            assert len(feet_indices) == len(feet_links), (
+                f'len({feet_indices}) != len({feet_links})'
+            )
+            for index, name in zip(feet_indices, feet_links):
+                convention.links_names[index] = name
+        # Links and joints
         links_names = convention.links_names
         joints_names = convention.joints_names
         options.pop('links_names', None)
         options.pop('joints_names', None)
-        default_lateral_friction = kwargs.pop('default_lateral_friction', 1)
+        # Feet friction
         feet_friction = kwargs.pop('feet_friction', None)
         if feet_friction is None:
             feet_friction = default_lateral_friction
@@ -245,9 +266,6 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             feet_friction += [feet_friction[0]]*(
                 convention.n_legs_pair() - len(feet_friction)
             )
-        feet_links = kwargs.pop('feet_links', None)
-        if feet_links is None:
-            feet_links = convention.feet_links_names()
         links_friction_lateral = kwargs.pop(
             'links_friction_lateral',
             [
@@ -356,6 +374,10 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             'joints_velocities',
             [0 for name in joints_names]
         )
+        joints_stiffness = kwargs.pop(
+            'joints_stiffness',
+            [0 for name in joints_names]
+        )
         joints_damping = kwargs.pop(
             'joints_damping',
             [0 for name in joints_names]
@@ -365,11 +387,13 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             assert all(len(element) == len(joints_names) for element in (
                 joints_positions,
                 joints_velocities,
+                joints_stiffness,
                 joints_damping,
             )), (
                 'Not all same size:'
                 f' position: {len(joints_positions)},'
                 f' velocity: {len(joints_velocities)},'
+                f' stiffness: {len(joints_stiffness)}'
                 f' damping: {len(joints_damping)}'
             )
         options['joints'] = kwargs.pop(
@@ -378,6 +402,8 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                 JointOptions(
                     name=name,
                     initial=[position, velocity],
+                    stiffness=stiffness,
+                    springref=0,
                     damping=damping,
                     limits=[
                         [-np.inf, np.inf],
@@ -385,10 +411,11 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                     ],
                     extras={},
                 )
-                for name, position, velocity, damping in zip(
+                for name, position, velocity, stiffness, damping in zip(
                     joints_names,
                     joints_positions,
                     joints_velocities,
+                    joints_stiffness,
                     joints_damping,
                 )
             ]
@@ -488,6 +515,7 @@ class AmphibiousControlOptions(ControlOptions):
             AmphibiousMuscleSetOptions(**muscle)
             for muscle in kwargs.pop('muscles')
         ]
+        self.hill_muscles = kwargs.pop('hill_muscles', [])
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
     @classmethod
@@ -794,6 +822,18 @@ class AmphibiousControlOptions(ControlOptions):
         """Motors offset bias"""
         return [motor.transform.bias for motor in self.motors]
 
+    def drives_contacts_indices(self):
+        """Drives contacts indices"""
+        for drive in self.network.drives:
+            for contact in drive.contacts:
+                assert contact in self.sensors.contacts, (
+                    f'{contact=} not in {self.sensors.contacts=}'
+                )
+        return [
+            [self.sensors.contacts.index(contact) for contact in drive.contacts]
+            for drive in self.network.drives
+        ]
+
 
 class KinematicsControlOptions(ControlOptions):
     """Amphibious kinematics control options"""
@@ -805,7 +845,9 @@ class KinematicsControlOptions(ControlOptions):
                 AmphibiousMotorOptions(**motor)
                 for motor in kwargs.pop('motors')
             ],
+            muscles=kwargs.pop('muscles', []),
         )
+        self.hill_muscles = kwargs.pop('hill_muscles', [])
         self.kinematics_file = kwargs.pop('kinematics_file')
         self.kinematics_sampling = kwargs.pop('kinematics_sampling')
         self.kinematics_indices = kwargs.pop('kinematics_indices')
@@ -1183,22 +1225,6 @@ class AmphibiousNetworkOptions(Options):
         if np.ndim(legs_amplitudes) == 1:
             legs_amplitudes = repeat([legs_amplitudes]).tolist()
 
-        # Drives
-        if not self.drives:
-            self.drives = [
-                AmphibiousDriveOptions(
-                    name=None,
-                    initial_value=None,
-                )
-                for drive_i in range(2)
-            ]
-        drives_init = kwargs.pop('drives_init', [0, 0])
-        for drive_i, drive in enumerate(self.drives):
-            if drive.name is None:
-                drive.name = f'Drive_{drive_i}'
-            if drive.initial_value is None:
-                drive.initial_value = drives_init[drive_i]
-
         # Oscillators
         n_oscillators = convention.n_osc()
         if not self.oscillators:
@@ -1455,16 +1481,122 @@ class AmphibiousNetworkOptions(Options):
                 if (info := convention.oscindex2information(osc_i))['body']
                 else info['side_i']  # Limbs
                 for osc_i, _ in enumerate(self.oscillators)
+        # Drives
+        if not self.drives:
+            self.drives = [
+                AmphibiousDriveOptions(
+                    name=None,
+                    initial_value=None,
+                    left_right=None,
+                    contacts=None,
+                )
+                for _ in range(n_oscillators)
             ]
+        drives_init = kwargs.pop('drives_init', [0, 0])
+        drive_contact_type = kwargs.pop('drive_contact_type', '')
+        n_links_body = convention.n_links_body()
+        n_legs_pair = convention.n_legs_pair()
+        contacts_body = [
+            (name, '')
+            for name in convention.body_links_names()
+        ]
+        contacts_feet = [
+            (name, '')
+            for name in convention.feet_links_names()
+        ]
+        overlap = round(0.1*n_links_body)
+        body_splits = [
+            np.arange(
+                max(0, split[0]-overlap),
+                min(n_links_body, split[-1]+overlap+1)
+            )
+            if len(split)
+            else np.arange(0, n_links_body)
+            for split in np.array_split(
+                    np.arange(n_links_body),
+                    n_leg_pairs,
+            )
+        ] if n_leg_pairs else []
+        overlap = round(0.1*n_legs_pair)
+        limb_splits = [
+            np.arange(
+                max(0, index-overlap),
+                min(n_legs_pair, index+overlap+1)
+            )
+            for index in np.arange(n_legs_pair)
+        ]
+        for drive_i, drive in enumerate(self.drives):
+            info = convention.oscindex2information(drive_i)
+            if drive.name is None:
+                # drive.name = f'Drive_{drive_i}'
+                osc_name = convention.oscindex2name(drive_i)
+                drive.name = osc_name.replace('osc', 'drv')
+            if drive.initial_value is None:
+                drive.initial_value = drives_init[
+                    (drive_i % 2)
+                    if len(drives_init) == 2
+                    else drive_i
+                ]
+            if drive.left_right is None:
+                drive.left_right = (
+                    info['side']  # Body
+                    if info['body']
+                    else (1-info['side_i'])  # Limbs
+                )
+            if drive.contacts is None:
+                if drive_contact_type == '':
+                    drive.contacts = []
+                elif drive_contact_type == 'all':
+                    drive.contacts = contacts_body + contacts_feet
+                elif drive_contact_type == 'distributed':
+                    n_joints_body = convention.n_joints_body
+                    if info['body']:  # Body
+                        joint_i = info['joint_i']
+                        leg_i = round(joint_i*(n_legs_pair-1)/(n_joints_body-1))
+                        drive.contacts = (
+                            contacts_body[joint_i:joint_i+2]
+                            + contacts_feet[2*leg_i:2*leg_i+2]
+                        )
+                    else:  # Limbs
+                        leg_i = info['leg_i']
+                        body_indices = body_splits[leg_i]
+                        drive.contacts = (
+                            [contacts_body[i] for i in body_indices]
+                            + [
+                                contact
+                                for leg_ii in limb_splits[leg_i]
+                                for contact in contacts_feet[2*leg_ii:2*leg_ii+2]
+                            ]
+                        )
+                else:
+                    raise Exception(f'Unknown {drive_contact_type=}')
+        if self.drive2osc is None:
+            self.drive2osc = list(range(n_oscillators))
         if self.drive2joint is None:
             self.drive2joint = [
-                [0, 1]
-                for _ in range(convention.n_joints())
+                [2*i, 2*i+1]
+                for i in range(convention.n_joints())
             ]
 
     def drives_init(self):
         """Initial drives"""
         return [drive.initial_value for drive in self.drives]
+
+    def drives_left_indices(self):
+        """Drives left indices"""
+        return [
+            drive_i
+            for drive_i, drive in enumerate(self.drives)
+            if drive.left_right == 0
+        ]
+
+    def drives_right_indices(self):
+        """Drives right indices"""
+        return [
+            drive_i
+            for drive_i, drive in enumerate(self.drives)
+            if drive.left_right == 1
+        ]
 
     def n_oscillators(self):
         """Number of oscillators"""
@@ -1524,7 +1656,7 @@ class AmphibiousNetworkOptions(Options):
                     side=side_osc,
                 )] = (
                     phases_init_body[joint_i]
-                    + (0 if side_osc else np.pi)
+                    + (np.pi if side_osc else 0)
                 )
         phases_init_legs = [0]*convention.n_dof_legs
         for joint_i in range(convention.n_dof_legs):
@@ -2263,6 +2395,8 @@ class AmphibiousDriveOptions(Options):
         super().__init__()
         self.name: str = kwargs.pop('name')
         self.initial_value: float = kwargs.pop('initial_value')
+        self.left_right = kwargs.pop('left_right')  # 0 if left, 1 if right
+        self.contacts = kwargs.pop('contacts')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 

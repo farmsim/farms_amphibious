@@ -46,6 +46,7 @@ class KinematicsController(AnimatController):
         super().__init__(
             joints_names=joints_names,
             max_torques=max_torques,
+            muscles_names=[],
         )
 
         # Time vector
