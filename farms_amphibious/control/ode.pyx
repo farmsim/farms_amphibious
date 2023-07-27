@@ -7,7 +7,7 @@
 # cimport cython
 # from cython.parallel import prange
 
-from libc.math cimport sin, cos, fabs
+from libc.math cimport M_PI, sin, cos, fabs, fmax, fmod, sqrt
 # from libc.stdlib cimport malloc, free
 from libc.stdio cimport printf
 
