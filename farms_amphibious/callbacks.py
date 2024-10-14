@@ -10,12 +10,21 @@ from farms_mujoco.swimming.drag import SwimmingHandler
 from .model.options import AmphibiousOptions, AmphibiousArenaOptions
 
 
-def setup_callbacks(animat_options, arena_options, camera=None):
+def setup_callbacks(
+        animat_options,
+        arena_options,
+        camera=None,
+        water_properties=None,
+):
     """Callbacks for amphibious simulation"""
     callbacks = []
     if arena_options.water.sdf:
         callbacks += [
-            SwimmingCallback(animat_options, arena_options),
+            SwimmingCallback(
+                animat_options,
+                arena_options,
+                water_properties=water_properties,
+            ),
         ]
     if camera is not None:
         callbacks += [camera]
@@ -61,11 +70,13 @@ class SwimmingCallback(TaskCallback):
             animat_options: AmphibiousOptions,
             arena_options: AmphibiousArenaOptions,
             substep=True,
+            water_properties=None,
     ):
         super().__init__(substep=substep)
         self.animat_options = animat_options
         self.arena_options = arena_options
         self._handler: SwimmingHandler = None
+        self._water_properties = water_properties
 
         self.constant_velocity: bool = (
             len(arena_options.water.velocity) == 3
@@ -100,6 +111,7 @@ class SwimmingCallback(TaskCallback):
             arena_options=self.arena_options,
             units=task.units,
             physics=physics,
+            water=self._water_properties,
         )
 
     def before_step(self, task, action, physics):
@@ -117,7 +129,7 @@ class SwimmingCallback(TaskCallback):
             self._handler.set_water_velocity(water_velocity)
 
         # Compute fluid forces
-        self._handler.step(task.iteration)
+        self._handler.step(physics.time(), task.iteration)
 
         # Set fluid forces in physics engine
         indices = task.maps['sensors']['data2xfrc']
