@@ -125,6 +125,13 @@ def options_kwargs_all_keys():
     )
 
 
+class DriveKind(str, Enum):  # Not using StrEnum until Python 3.10 EOL
+    BRAIN_LEFT = 'brain_left'
+    BRAIN_RIGHT = 'brain_right'
+    SPINE_LEFT = 'spine_left'
+    SPINE_RIGHT = 'spine_right'
+
+
 class AmphibiousOptions(AnimatOptions):
     """Simulation options"""
 
