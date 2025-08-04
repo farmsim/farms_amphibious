@@ -299,19 +299,31 @@ class Oscillators(OscillatorsCy):
         freqs, amplitudes = [
             np.array([
                 [
-                    freq['gain'],
-                    freq['bias'],
-                    freq['low'],
-                    freq['high'],
-                    freq['saturation'],
+                    opt['gain'],
+                    opt['bias'],
+                    opt['low'],
+                    opt['high'],
+                    opt['saturation_low'],
+                    opt['saturation_high'],
                 ]
-                for freq in option
+                for opt in option
             ], dtype=NPDTYPE)
             for option in [network.osc_frequencies(), network.osc_amplitudes()]
         ]
+        drives = [drive.name for drive in network.drives]
+        drive2osc_map = {
+            element['oscillator']: drives.index(element['drive'])
+            for element in network.drive2osc
+        }
         return cls(
             network.osc_names(),
-            np.array(network.drive2osc, dtype=NPUITYPE),
+            np.array(
+                [
+                    drive2osc_map[osc.name]
+                    for osc in network.oscillators
+                ],
+                dtype=NPUITYPE,
+            ),
             freqs,
             amplitudes,
             np.array(network.osc_rates(), dtype=NPDTYPE),

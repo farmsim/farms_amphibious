@@ -1,17 +1,24 @@
 """Callbacks"""
 
+import os
+
 import numpy as np
 from imageio import imread
 
+from farms_core import pylog
 from farms_core.sensors.sensor_convention import sc
 from farms_mujoco.simulation.task import TaskCallback
 from farms_mujoco.swimming.drag import SwimmingHandler
+from farms_mujoco.simulation.mjcf import get_prefix
+from farms_mujoco.swimming.drag import WaterPropertiesCallback
 
+from .data.data import AmphibiousData
 from .model.options import AmphibiousOptions, AmphibiousArenaOptions
 
 
 def setup_callbacks(
-        animat_options,
+        animats_data,
+        animats_options,
         arena_options,
         camera=None,
         water_properties=None,
@@ -21,10 +28,16 @@ def setup_callbacks(
     if arena_options.water.sdf:
         callbacks += [
             SwimmingCallback(
+                animat_i,
+                animat_data,
                 animat_options,
                 arena_options,
                 water_properties=water_properties,
-            ),
+            )
+            for animat_i, (animat_data, animat_options) in enumerate(zip(
+                    animats_data,
+                    animats_options,
+            ))
         ]
     if camera is not None:
         callbacks += [camera]
@@ -67,12 +80,16 @@ class SwimmingCallback(TaskCallback):
 
     def __init__(
             self,
+            animat_i: int,
+            animat_data: AmphibiousData,
             animat_options: AmphibiousOptions,
             arena_options: AmphibiousArenaOptions,
             substep=True,
             water_properties=None,
     ):
         super().__init__(substep=substep)
+        self.animat_i = animat_i
+        self.animat_data = animat_data
         self.animat_options = animat_options
         self.arena_options = arena_options
         self._handler: SwimmingHandler = None
@@ -83,12 +100,20 @@ class SwimmingCallback(TaskCallback):
         )
         if not self.constant_velocity:
             water_velocity = arena_options.water.velocity
-            water_maps = arena_options.water.maps
+            water_maps = [
+                os.path.expandvars(map_path)
+                for map_path in arena_options.water.maps
+            ]
+            for i in range(2):
+                assert os.path.isfile(water_maps[i]), (
+                    f"{water_maps[i]=} is not pointing to an existing file"
+                    f"\nNote: {arena_options.water.velocity=}"
+                )
             pngs = [np.flipud(imread(water_maps[i])).T for i in range(2)]
             pngs_info = [np.iinfo(png.dtype) for png in pngs]
             vels = [
                 (
-                    png - info.min  # .astype(np.double)
+                    png.astype(np.double) - info.min
                 ) * (
                     water_velocity[png_i+3] - water_velocity[png_i+0]
                 ) / (
@@ -99,42 +124,53 @@ class SwimmingCallback(TaskCallback):
             self.water_maps = {
                 'pos_min': np.array(water_velocity[6:8]),
                 'pos_max': np.array(water_velocity[8:10]),
-                'vel_x': vels[0],
-                'vel_y': vels[1],
+                'vel_x': -vels[0],
+                'vel_y': +vels[1],
             }
+            pylog.debug(
+                "Water velocities loaded: %s"
+                "\nVelX: Min=%s [m/s] Max=%s [m/s] (%s/%s / %s/%s)"
+                "\nVelY: Min=%s [m/s] Max=%s [m/s] (%s/%s / %s/%s)"
+                "\nWater velocity: %s",
+                water_maps,
+                np.min(vels[0]), np.max(vels[0]),
+                pngs[0].min(), pngs_info[0].min,
+                pngs[0].max(), pngs_info[0].max,
+                np.min(vels[1]), np.max(vels[1]),
+                pngs[1].min(), pngs_info[1].min,
+                pngs[1].max(), pngs_info[1].max,
+                water_velocity,
+            )
+            wtr_options = arena_options.water
+            self._water_properties = WaterPropertiesCallback(
+                surface=maps_surface_callback(float(wtr_options.height)),
+                density=maps_density_callback(float(wtr_options.density)),
+                viscosity=maps_viscosity_callback(float(wtr_options.viscosity)),
+                velocity=maps_velocity_callback(self.water_maps),
+            )
 
     def initialize_episode(self, task, physics):
         """Initialize episode"""
         self._handler = SwimmingHandler(
-            data=task.data,
+            data=self.animat_data,
             animat_options=self.animat_options,
             arena_options=self.arena_options,
             units=task.units,
             physics=physics,
             water=self._water_properties,
+            prefix=get_prefix(self.animat_i),
         )
 
     def before_step(self, task, action, physics):
         """Step hydrodynamics"""
 
-        # Water maps
-        if not self.constant_velocity:
-            water_velocity = water_velocity_from_maps(
-                position=task.data.sensors.links.urdf_position(
-                    iteration=task.iteration,
-                    link_i=0,
-                ),
-                water_maps=self.water_maps,
-            )
-            self._handler.set_water_velocity(water_velocity)
-
         # Compute fluid forces
         self._handler.step(physics.time(), task.iteration)
 
         # Set fluid forces in physics engine
-        indices = task.maps['sensors']['data2xfrc']
+        indices = task.maps[self.animat_i]['sensors']['data2xfrc']
         physics.data.xfrc_applied[indices, :] = (
-            task.data.sensors.xfrc.array[
+            self.animat_data.sensors.xfrc.array[
                 task.iteration, :,
                 sc.xfrc_force_x:sc.xfrc_torque_z+1,
             ]

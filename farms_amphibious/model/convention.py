@@ -15,6 +15,7 @@ class AmphibiousConvention(Options):
         self.single_osc_legs = kwargs.pop('single_osc_legs', False)
         self.n_dof_legs = kwargs.pop('n_dof_legs')
         self.n_legs = kwargs.pop('n_legs')
+        self.n_joints_passive = kwargs.pop('n_joints_passive')
         self.links_names = kwargs.pop(
             'links_names',
             [link['name'] for link in kwargs['links']]

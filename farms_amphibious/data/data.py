@@ -13,8 +13,12 @@ from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions, ControlOptions
 from farms_core.simulation.options import SimulationOptions
 from farms_core.sensors.data import SensorsData
+from farms_core.simulation.data import SimulationData
+from farms_core.experiment.data import ExperimentData
 
 from ..model.options import (
+    AmphibiousExperimentOptions,
+    AmphibiousOptions,
     AmphibiousControlOptions,
     KinematicsControlOptions,
 )
@@ -58,6 +62,15 @@ class JointsControlArray(JointsControlArrayCy):
     @classmethod
     def from_options(cls, control: ControlOptions):
         """Default"""
+        drives = [drive.name for drive in control.network.drives]
+        drive2joint_map = {
+            element['joint']: [
+                drives.index(element['drive0']),
+                drives.index(element['drive1']),
+            ]
+            for element in control.network.drive2joint
+        }
+        joints = [element['joint'] for element in control.network.drive2joint]
         return cls(
             array=np.array([
                 [
@@ -65,7 +78,8 @@ class JointsControlArray(JointsControlArrayCy):
                     offset['bias'],
                     offset['low'],
                     offset['high'],
-                    offset['saturation'],
+                    offset['saturation_low'],
+                    offset['saturation_high'],
                     rate,
                 ]
                 for offset, rate in zip(
@@ -74,7 +88,13 @@ class JointsControlArray(JointsControlArrayCy):
                 )
             ], dtype=np.double),
             drive2joint_map=IntegerArray2D(
-                np.array(control.network.drive2joint, dtype=np.uintc)
+                np.array(
+                    [
+                        drive2joint_map[joint]
+                        for joint in joints
+                    ],
+                    dtype=np.uintc,
+                )
             ),
         )
 
@@ -178,11 +198,14 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         )
 
         return cls(
-            timestep=simulation_options.timestep,
             sensors=sensors,
             state=state,
             network=network,
-            joints=JointsControlArray.from_options(animat_options.control),
+            joints=(
+                JointsControlArray.from_options(animat_options.control)
+                if animat_options.control.network is not None
+                else None
+            ),
         )
 
     @classmethod
@@ -246,3 +269,48 @@ class AmphibiousKinematicsData(AnimatData):
                 simulation_options=simulation_options,
             ),
         )
+
+
+class AmphibiousExperimentData(ExperimentData):
+    """Amphibious experiment data"""
+
+    @classmethod
+    def from_file(cls, filename: str):
+        """From file"""
+        pylog.info('Loading data from %s', filename)
+        data_experiment = hdf5_to_dict(filename=filename)
+        pylog.info('loaded data from %s', filename)
+        for animat_data in data_experiment['animats']:
+            animat_data['n_oscillators'] = (
+                len(animat_data['network']['oscillators']['names'])
+            )
+        return cls.from_dict(data_experiment)
+
+    @classmethod
+    def from_dict(cls, dictionary: dict):
+        """Load data from dictionary"""
+        times = dictionary.get('times', [])
+        assert 'animats' in dictionary, f'"animats" not in {dictionary.keys()=}'
+        return cls(
+            times=times,
+            timestep=dictionary['timestep'],
+            animats=[
+                AmphibiousData.from_dict(animat)
+                for animat in dictionary['animats']
+            ],
+            simulation=(
+                SimulationData.from_dict(dictionary['simulation'])
+                if 'simulation' in dictionary
+                else SimulationData.from_size(len(times))
+            ),
+        )
+
+
+def get_amphibious_experiment_data(
+        experiment_options: AmphibiousExperimentOptions,
+) -> AmphibiousExperimentData:
+    """Get amphibious experiment data"""
+    return AmphibiousExperimentData.from_options(
+        experiment_options,
+        animat_class=AmphibiousData,
+    )

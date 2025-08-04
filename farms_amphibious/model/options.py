@@ -1,6 +1,7 @@
 """Animat options"""
 
 from typing import List, Dict, Union
+from enum import Enum
 from functools import partial
 from itertools import product
 
@@ -8,6 +9,8 @@ import numpy as np
 from numpy.random import MT19937, RandomState, SeedSequence
 
 from farms_core.options import Options
+from farms_core.experiment.options import ExperimentOptions
+from farms_core.simulation.options import SimulationOptions
 from farms_core.model.options import (
     AnimatOptions,
     MorphologyOptions,
@@ -207,6 +210,22 @@ class AmphibiousOptions(AnimatOptions):
         ]
 
 
+class AmphibiousExperimentOptions(ExperimentOptions):
+    """Amphibious experiment options"""
+
+    def __init__(
+            self,
+            simulation: str | SimulationOptions,
+            animats: list[str] | list[AmphibiousOptions],
+            arenas: list[str] | list[ArenaOptions],
+    ):
+        super().__init__(
+            simulation=simulation,
+            animats=animats,
+            arenas=arenas,
+        )
+
+
 class AmphibiousMorphologyOptions(MorphologyOptions):
     """Amphibious morphology options"""
 
@@ -225,6 +244,7 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
         self.n_joints_body = kwargs.pop('n_joints_body')
         self.n_dof_legs = kwargs.pop('n_dof_legs')
         self.n_legs = kwargs.pop('n_legs')
+        self.n_joints_passive = kwargs.pop('n_joints_passive')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
     @classmethod
@@ -523,6 +543,14 @@ class AmphibiousControlOptions(ControlOptions):
             for muscle in kwargs.pop('muscles')
         ]
         self.hill_muscles = kwargs.pop('hill_muscles', [])
+        self.adhesions = [
+            AmphibiousAdhesionsOptions(**adhesion)
+            for adhesion in kwargs.pop('adhesions')
+        ]
+        self.visuals = [
+            AmphibiousVisualsOptions(**visual)
+            for visual in kwargs.pop('visuals')
+        ]
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
     @classmethod
@@ -807,7 +835,11 @@ class AmphibiousControlOptions(ControlOptions):
         return [
             {
                 key: getattr(motor.offsets, key)
-                for key in ['gain', 'bias', 'low', 'high', 'saturation']
+                for key in [
+                        'gain', 'bias',
+                        'low', 'high',
+                        'saturation_low', 'saturation_high',
+                ]
             }
             for motor in self.motors
             if motor.offsets is not None
@@ -1151,7 +1183,8 @@ class AmphibiousMotorOffsetOptions(Options):
         self.bias: float = kwargs.pop('bias')
         self.low: float = kwargs.pop('low')
         self.high: float = kwargs.pop('high')
-        self.saturation: float = kwargs.pop('saturation')
+        self.saturation_low: float = kwargs.pop('saturation_low')
+        self.saturation_high: float = kwargs.pop('saturation_high')
         self.rate: float = kwargs.pop('rate')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
@@ -1489,10 +1522,10 @@ class AmphibiousNetworkOptions(Options):
                 AmphibiousDriveOptions(
                     name=None,
                     initial_value=None,
-                    left_right=None,
+                    kind=None,
                     contacts=None,
                 )
-                for _ in range(n_oscillators)
+                for _ in range(convention.n_drives())
             ]
         drives_init = kwargs.pop('drives_init', [0, 0])
         drive_contact_type = kwargs.pop('drive_contact_type', '')
@@ -1539,11 +1572,23 @@ class AmphibiousNetworkOptions(Options):
                     if len(drives_init) == 2
                     else drive_i
                 ]
-            if drive.left_right is None:
-                drive.left_right = (
-                    info['side']  # Body
+            if drive.kind is None:
+                drive.kind = (
+                    info['kind']
+                    if info.get('region', 'spine') == 'brain'
+                    else (
+                        # Body
+                        DriveKind.SPINE_LEFT
+                        if info['side'] == 0
+                        else DriveKind.SPINE_RIGHT
+                    )
                     if info['body']
-                    else (1-info['side_i'])  # Limbs
+                    else (
+                        # Limbs
+                        DriveKind.SPINE_LEFT
+                        if info['side_i'] == 1
+                        else DriveKind.SPINE_RIGHT
+                    )
                 )
             if drive.contacts is None:
                 if drive_contact_type == '':
@@ -1552,14 +1597,16 @@ class AmphibiousNetworkOptions(Options):
                     drive.contacts = contacts_body + contacts_feet
                 elif drive_contact_type == 'distributed':
                     n_joints_body = convention.n_joints_body
-                    if info['body']:  # Body
+                    if info.get('region', 'spine') == 'brain':  # Brain drive
+                        drive.contacts = []
+                    elif info['body']:  # Spine drive (Body)
                         joint_i = info['joint_i']
                         leg_i = round(joint_i*(n_legs_pair-1)/(n_joints_body-1))
                         drive.contacts = (
                             contacts_body[joint_i:joint_i+2]
                             + contacts_feet[2*leg_i:2*leg_i+2]
                         )
-                    else:  # Limbs
+                    else:  # Spine drive (Limbs)
                         leg_i = info['leg_i']
                         body_indices = body_splits[leg_i]
                         drive.contacts = (
@@ -1584,21 +1631,30 @@ class AmphibiousNetworkOptions(Options):
         """Initial drives"""
         return [drive.initial_value for drive in self.drives]
 
-    def drives_left_indices(self):
-        """Drives left indices"""
+    def drives_indices_kind(self, kind):
+        """Drives brain indices"""
         return [
             drive_i
             for drive_i, drive in enumerate(self.drives)
             if drive.left_right == 0
+            if drive.kind == kind
         ]
 
+    def drives_brain_left_indices(self):
+        """Drives left brain indices"""
+        return self.drives_indices_kind(kind=DriveKind.BRAIN_LEFT)
+
+    def drives_brain_right_indices(self):
+        """Drives right brain indices"""
+        return self.drives_indices_kind(kind=DriveKind.BRAIN_RIGHT)
+
+    def drives_left_indices(self):
+        """Drives (Spinal) left indices"""
+        return self.drives_indices_kind(kind=DriveKind.SPINE_LEFT)
+
     def drives_right_indices(self):
-        """Drives right indices"""
-        return [
-            drive_i
-            for drive_i, drive in enumerate(self.drives)
-            if drive.left_right == 1
-        ]
+        """Drives (Spinal) right indices"""
+        return self.drives_indices_kind(kind=DriveKind.SPINE_RIGHT)
 
     def n_oscillators(self):
         """Number of oscillators"""
@@ -1616,7 +1672,8 @@ class AmphibiousNetworkOptions(Options):
                 'bias': osc.frequency_bias,
                 'low': osc.frequency_low,
                 'high': osc.frequency_high,
-                'saturation': osc.frequency_saturation,
+                'saturation_low': osc.frequency_saturation_low,
+                'saturation_high': osc.frequency_saturation_high,
             }
             for osc in self.oscillators
         ]
@@ -1629,7 +1686,8 @@ class AmphibiousNetworkOptions(Options):
                 'bias': osc.amplitude_bias,
                 'low': osc.amplitude_low,
                 'high': osc.amplitude_high,
-                'saturation': osc.amplitude_saturation,
+                'saturation_low': osc.amplitude_saturation_low,
+                'saturation_high': osc.amplitude_saturation_high,
             }
             for osc in self.oscillators
         ]
@@ -1694,7 +1752,8 @@ class AmphibiousNetworkOptions(Options):
                     'bias': body_freq_bias,
                     'low': 1,
                     'high': 5,
-                    'saturation': 0,
+                    'saturation_low': 0,
+                    'saturation_high': 0,
                 }
 
         # legs
@@ -1714,7 +1773,8 @@ class AmphibiousNetworkOptions(Options):
                             'bias': legs_freq_bias,
                             'low': 1,
                             'high': 3,
-                            'saturation': 0,
+                            'saturation_low': 0,
+                            'saturation_high': 0,
                         }
 
         return frequencies
@@ -2378,12 +2438,14 @@ class AmphibiousOscillatorOptions(Options):
         self.frequency_bias = kwargs.pop('frequency_bias')
         self.frequency_low = kwargs.pop('frequency_low')
         self.frequency_high = kwargs.pop('frequency_high')
-        self.frequency_saturation = kwargs.pop('frequency_saturation')
+        self.frequency_saturation_low = kwargs.pop('frequency_saturation_low')
+        self.frequency_saturation_high = kwargs.pop('frequency_saturation_high')
         self.amplitude_gain = kwargs.pop('amplitude_gain')
         self.amplitude_bias = kwargs.pop('amplitude_bias')
         self.amplitude_low = kwargs.pop('amplitude_low')
         self.amplitude_high = kwargs.pop('amplitude_high')
-        self.amplitude_saturation = kwargs.pop('amplitude_saturation')
+        self.amplitude_saturation_low = kwargs.pop('amplitude_saturation_low')
+        self.amplitude_saturation_high = kwargs.pop('amplitude_saturation_high')
         self.rate = kwargs.pop('rate')
         self.modular_phase = kwargs.pop('modular_phase')
         self.modular_amplitude = kwargs.pop('modular_amplitude')
@@ -2397,7 +2459,7 @@ class AmphibiousDriveOptions(Options):
         super().__init__()
         self.name: str = kwargs.pop('name')
         self.initial_value: float = kwargs.pop('initial_value')
-        self.left_right = kwargs.pop('left_right')  # 0 if left, 1 if right
+        self.kind: DriveKind = kwargs.pop('kind')
         self.contacts = kwargs.pop('contacts')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
@@ -2415,6 +2477,25 @@ class AmphibiousMuscleSetOptions(Options):
         self.gamma: float = kwargs.pop('gamma')  # Tonic gain
         self.delta: float = kwargs.pop('delta')  # Damping coefficient
         self.epsilon: float = kwargs.pop('epsilon')  # Friction coefficient
+        assert not kwargs, f'Unknown kwargs: {kwargs}'
+
+
+class AmphibiousAdhesionsOptions(Options):
+    """Amphibious adhesion options"""
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.link_name: str = kwargs.pop('link_name')
+        self.force: str = kwargs.pop('force')
+        assert not kwargs, f'Unknown kwargs: {kwargs}'
+
+
+class AmphibiousVisualsOptions(Options):
+    """Amphibious visual options"""
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.visual_name: str = kwargs.pop('visual_name')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
