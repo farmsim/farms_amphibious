@@ -1636,7 +1636,6 @@ class AmphibiousNetworkOptions(Options):
         return [
             drive_i
             for drive_i, drive in enumerate(self.drives)
-            if drive.left_right == 0
             if drive.kind == kind
         ]
 
