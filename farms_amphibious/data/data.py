@@ -137,7 +137,11 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         oscillators_map, joints_map, contacts_map, xfrc_map = (
             [
                 {
-                    name: element_i
+                    (
+                        tuple(name)
+                        if isinstance(name, list)
+                        else name
+                    ): element_i
                     for element_i, name in enumerate(element.names)
                 }
                 for element in (
