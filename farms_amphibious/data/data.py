@@ -159,7 +159,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         state = (
             OscillatorNetworkState.from_initial_state(
                 initial_state=animat_options.state_init(),
-                n_iterations=simulation_options.n_iterations,
+                n_iterations=simulation_options.runtime.n_iterations,
                 n_oscillators=animat_options.control.network.n_oscillators(),
             )
             if animat_options.control.network is not None
@@ -171,7 +171,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
             NetworkParameters(
                 drives=DriveArray.from_animat_options(
                     animat_options=animat_options,
-                    n_iterations=simulation_options.n_iterations,
+                    n_iterations=simulation_options.runtime.n_iterations,
                 ),
                 oscillators=oscillators,
                 osc2osc_map=OscillatorConnectivity.from_connectivity(
