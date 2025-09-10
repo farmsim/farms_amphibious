@@ -22,6 +22,7 @@ from farms_core.model.options import (
     SensorsOptions,
     WaterOptions,
     ArenaOptions,
+    AnimatExtensionOptions,
 )
 from .convention import AmphibiousConvention
 
@@ -71,7 +72,11 @@ def options_kwargs_int_list_keys():
 
 def options_kwargs_str_keys():
     """Options kwargs string keys"""
-    return ['drive_contact_type', 'kinematics_file']
+    return [
+        'drive_loader',
+        'drive_contact_type',
+        'kinematics_file',
+    ]
 
 
 def options_kwargs_str_list_keys():
@@ -148,8 +153,11 @@ class AmphibiousOptions(AnimatOptions):
                 if 'kinematics_file' in kwargs['control']
                 else AmphibiousControlOptions(**kwargs.pop('control'))
             ),
+            extensions=[
+                AnimatExtensionOptions(**extension)
+                for extension in kwargs.pop('extensions')
+            ],
         )
-        self.name = kwargs.pop('name')
         self.show_xfrc = kwargs.pop('show_xfrc')
         self.scale_xfrc = kwargs.pop('scale_xfrc')
         self.mujoco = kwargs.pop('mujoco')
@@ -525,7 +533,11 @@ class AmphibiousControlOptions(ControlOptions):
 
     def __init__(self, **kwargs):
         super().__init__(
-            sensors=(AmphibiousSensorsOptions(**kwargs.pop('sensors'))),
+            controller_loader=kwargs.pop(
+                'controller_loader',
+                'farms_amphibious.control.amphibious.AmphibiousController',
+            ),
+            sensors=AmphibiousSensorsOptions(**kwargs.pop('sensors')),
             motors=[
                 AmphibiousMotorOptions(**motor)
                 for motor in kwargs.pop('motors')
@@ -1209,6 +1221,7 @@ class AmphibiousNetworkOptions(Options):
         super().__init__()
 
         # Drives
+        self.drive_loader = kwargs.pop('drive_loader', '')
         self.drive_config = kwargs.pop('drive_config')
         self.drives: List[AmphibiousDriveOptions] = [
             AmphibiousDriveOptions(**drive)
@@ -1239,6 +1252,7 @@ class AmphibiousNetworkOptions(Options):
         """From options"""
         options = {}
         options['drives'] = kwargs.pop('drives', [])
+        options['drive_loader'] = kwargs.pop('drive_loader', '')
         options['drive_config'] = kwargs.pop('drive_config', '')
         options['oscillators'] = kwargs.pop('oscillators', [])
         options['single_osc_body'] = kwargs.pop('single_osc_body', False)

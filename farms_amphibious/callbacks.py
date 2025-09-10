@@ -9,7 +9,7 @@ from farms_core import pylog
 from farms_core.sensors.sensor_convention import sc
 from farms_mujoco.simulation.task import TaskCallback
 from farms_mujoco.swimming.drag import SwimmingHandler
-from farms_mujoco.simulation.mjcf import get_prefix
+from farms_mujoco.simulation.mjcf import ExperimentOptions, get_prefix
 from farms_mujoco.swimming.drag import WaterPropertiesCallback
 
 from .data.data import AmphibiousData
@@ -73,6 +73,41 @@ def water_velocity_from_maps(position, water_maps):
         ]
     # vel[1] *= -1
     return vel
+
+
+def maps_surface_callback(surface_height):
+    """Maps surface callback"""
+    def surface_callback(t, x, y):  # pylint: disable=unused-argument
+        """Surface"""
+        return surface_height
+    return surface_callback
+
+
+def maps_density_callback(density):
+    """Maps density callback"""
+    def density_callback(t, x, y, z):  # pylint: disable=unused-argument
+        """Density"""
+        return density
+    return density_callback
+
+
+def maps_viscosity_callback(viscosity):
+    """Maps viscosity callback"""
+    def viscosity_callback(t, x, y, z):  # pylint: disable=unused-argument
+        """Viscosity"""
+        return viscosity
+    return viscosity_callback
+
+
+def maps_velocity_callback(water_maps):
+    """Maps velocity callback"""
+    def velocity_callback(t, x, y, z):  # pylint: disable=unused-argument
+        """Velocity in global frame"""
+        return water_velocity_from_maps(
+            position=[x, y, z],
+            water_maps=water_maps,
+        )
+    return velocity_callback
 
 
 class SwimmingCallback(TaskCallback):
@@ -148,6 +183,25 @@ class SwimmingCallback(TaskCallback):
                 viscosity=maps_viscosity_callback(float(wtr_options.viscosity)),
                 velocity=maps_velocity_callback(self.water_maps),
             )
+
+    @classmethod
+    def from_options(
+            cls,
+            animat_i: int,
+            animat_data: AmphibiousData,
+            animat_options: AmphibiousOptions,
+            experiment_options: ExperimentOptions,
+            config: dict,
+    ):
+        """From options"""
+        water_properties = None
+        return cls(
+            animat_i,
+            animat_data,
+            animat_options,
+            experiment_options.arenas[0],
+            water_properties=water_properties,
+        )
 
     def initialize_episode(self, task, physics):
         """Initialize episode"""

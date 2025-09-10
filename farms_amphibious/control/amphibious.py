@@ -5,10 +5,13 @@ from typing import Dict, List, Tuple, Callable, Union
 
 import numpy as np
 
+from farms_core.io.yaml import yaml2pyobject
 from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions
+from farms_core.experiment.options import ExperimentOptions
 from farms_core.model.control import AnimatController, ControlType
 from farms_core.simulation.options import SimulationOptions
+from farms_core.extensions.extensions import import_item
 
 from ..data.data import AmphibiousData
 from ..model.options import (
@@ -19,7 +22,7 @@ from ..model.options import (
 
 from .kinematics import KinematicsController
 from .drive import DescendingDrive, drive_from_config
-from .network import AnimatNetwork
+from .network import AnimatNetwork, NetworkODE
 from .position_muscle_cy import PositionMuscleCy
 from .position_phase_cy import PositionPhaseCy
 from .passive_cy import PassiveJointCy
@@ -414,6 +417,55 @@ class AmphibiousController(JointMuscleController):
                 offset=0.25*np.pi,
                 threshold=1e-2,
             )
+
+    @classmethod
+    def from_options(
+            cls,
+            animat_data: AmphibiousData,
+            animat_options: AmphibiousOptions,
+            experiment_options: ExperimentOptions,
+            animat_i: int,  # Animat index
+    ):
+        """From options
+
+        animat_options = experiment_options.animats[animat_i]
+
+        """
+        joints_names = animat_options.control.joints_names()
+        drive = None
+        animat_network = NetworkODE(
+            data=animat_data,
+            integrator='dopri5',
+            nsteps=1000,
+            max_step=experiment_options.simulation.physics.timestep,
+            verbosity=3,
+        )
+        if (
+                animat_options.control.network.drive_config
+                and 'drive_config' in animat_options.control.network
+        ):
+            network_options = animat_options.control.network
+            filename = network_options.drive_config
+            drive_config = yaml2pyobject(filename)
+            loader = network_options.drive_loader
+            assert network_options.drive_loader, (
+                f'Cannot load {filename} without knowing {loader=}'
+                f'\nDrive config:\n\n{drive_config}'
+            )
+            drive_loader = import_item(loader)
+            drive = drive_loader.from_options(
+                animat_data,
+                animat_options,
+                drive_config,
+                experiment_options.simulation,
+            )
+        return cls(
+            joints_names=joints_names,
+            animat_options=animat_options,
+            animat_data=animat_data,
+            animat_network=animat_network,
+            drive=drive,
+        )
 
     def step(
             self,

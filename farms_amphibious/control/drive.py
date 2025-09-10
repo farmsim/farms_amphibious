@@ -8,6 +8,8 @@ from scipy.spatial import KDTree
 from simple_pid import PID
 
 from farms_core.io.yaml import yaml2pyobject
+from farms_core.simulation.options import SimulationOptions
+from farms_amphibious.data.data import AmphibiousData
 
 
 class PotentialMap(ABC):
@@ -147,6 +149,27 @@ class DescendingDrive(ABC):
             ] = values[index]
 
 
+def get_orientation_follower_kwargs(
+        drive_config: dict,
+        animat_data: AmphibiousData,
+        simulation_options: SimulationOptions,
+) -> dict:
+    """Get follower drive"""
+    potential_config = drive_config.pop('potential_map')
+    potential_type: str = potential_config.pop('type')
+    return {
+        'strategy': {
+            'line': StraightLinePotentialMap,
+            'circle': CirclePotentialMap,
+            'disline': StraightLinePotentialMap,
+            'discircle': CirclePotentialMap,
+        }[potential_type](**potential_config),
+        'animat_data': animat_data,
+        'timestep': simulation_options.physics.timestep,
+        **drive_config,
+    }
+
+
 class OrientationFollower(DescendingDrive):
     """Descending drive to follow orientation"""
 
@@ -169,6 +192,23 @@ class OrientationFollower(DescendingDrive):
         self.fwds_raw = np.zeros(self.n_drives)
         self.turn = 0
         assert not kwargs, kwargs
+
+    @classmethod
+    def from_options(
+            cls,
+            animat_data,
+            animat_options,
+            drive_config,
+            simulation_options,
+    ):
+        """From options"""
+        return cls(
+            **get_orientation_follower_kwargs(
+                drive_config=drive_config,
+                animat_data=animat_data,
+                simulation_options=simulation_options,
+            )
+        )
 
     def update_turn_command(self, pos):
         """Update command"""
