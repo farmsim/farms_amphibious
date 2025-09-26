@@ -8,6 +8,7 @@ from scipy.spatial import KDTree
 from simple_pid import PID
 
 from farms_core.io.yaml import yaml2pyobject
+from farms_core.array.types import NDARRAY_V1
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 
@@ -196,24 +197,33 @@ def get_orientation_follower_kwargs(
 class OrientationFollower(DescendingDrive):
     """Descending drive to follow orientation"""
 
-    def __init__(self, strategy, animat_data, timestep, **kwargs):
+    def __init__(
+            self,
+            strategy: PotentialMap,
+            animat_data: AmphibiousData,
+            timestep: float,
+            **kwargs,
+    ):
         self.strategy = strategy
         self.animat_data = animat_data
         super().__init__(drives=animat_data.network.drives)
+        self.setpoints: NDARRAY_V1 = np.zeros(self.n_iterations)
+        self.control: NDARRAY_V1 = np.zeros(self.n_iterations)
         self.links_indices = np.array(kwargs.pop('links_indices', [0]))
         self.heading_offset = kwargs.pop('heading_offset', 0)
-        self.contact_threshold = kwargs.pop('contact_threshold', 0)
+        self.contact_threshold = float(kwargs.pop('contact_threshold', 0))
         self.pid = PID(
             Kp=kwargs.pop('pid_p', 0.2),
             Ki=kwargs.pop('pid_i', 0.0),
             Kd=kwargs.pop('pid_d', 0.0),
             sample_time=timestep,
-            output_limits=kwargs.pop('output_limits', (-0.9, 0.9)),
+            output_limits=kwargs.pop('output_limits', (-0.7, 0.7)),
         )
-        self.contacts_values = np.zeros(self.n_drives)
+        self.contact_value = 0  # Perceived contact at brain level
         self.fwds = np.zeros(self.n_drives)
         self.fwds_raw = np.zeros(self.n_drives)
         self.turn = 0
+        kwargs.pop('contact_threshold_dis', None)
         assert not kwargs, kwargs
 
     @classmethod
@@ -233,39 +243,41 @@ class OrientationFollower(DescendingDrive):
             )
         )
 
-    def update_turn_command(self, pos):
+    def update_turn_command(self, pos) -> float:
         """Update command"""
         self.pid.setpoint = self.strategy.heading(pos)
         return self.pid.setpoint
 
-    def get_turn_control(self, iteration, timestep, command, heading):
+    def get_turn_control(
+            self,
+            iteration: int,
+            timestep: float,
+            command: float,
+            heading: float,
+    ) -> float:
         """Update drive"""
-        error = ((command - heading + np.pi) % (2*np.pi)) - np.pi
-        return -(self.pid(command-error, dt=timestep))
+        error: float = ((command - heading + np.pi) % (2*np.pi)) - np.pi
+        value: float = self.pid(command-error, dt=timestep)
+        return -value
 
-    def get_foward_control(self, iteration, timestep):
+    def get_foward_control(self, iteration: int, timestep: float):
         """Update drive"""
-        # xfrc = np.array(
-        #     self.animat_data.sensors.xfrc.forces(),
-        #     copy=False,
-        # )[iteration, indices, :]
-        # condition_xfrc = np.count_nonzero(xfrc) < int(0.85*len(indices)*3)
-        threshold = 9.81*self.contact_threshold
-        contacts = np.array(
-            self.animat_data.sensors.contacts.totals()[iteration],
+        threshold = self.contact_threshold
+        contacts = np.nan_to_num(
+            self.animat_data.sensors.contacts.reactions()[iteration],
             copy=True,
-        )  # [indices]
-
-        # All
-        contacts_sum = np.sum(np.abs(contacts))
-        self.contacts_values += min(10*timestep, 1)*(
-            contacts_sum - self.contacts_values
+            nan=0.0,
         )
 
-        self.fwds_raw = np.where(self.contacts_values > threshold, 2, 4)
+        # Single contact value
+        contacts_sum = np.sum(np.linalg.norm(contacts, axis=1))
+        self.contact_value += min(100*timestep, 1)*(
+            contacts_sum - self.contact_value
+        )
+        self.fwds_raw[:] = 2 if self.contact_value > threshold else 4
         return self.fwds_raw
 
-    def update(self, iteration, timestep, pos, heading):
+    def update_intention(self, iteration, timestep, pos, heading):
         """Update drive"""
         self.setpoints[iteration] = self.update_turn_command(pos=pos)
         drive_turn = self.get_turn_control(
@@ -280,14 +292,37 @@ class OrientationFollower(DescendingDrive):
             timestep=timestep,
         )
         self.fwds += min(100*timestep, 1)*(drive_fwds-self.fwds)
-        self.set_left_drive(iteration=iteration, values=self.fwds-self.turn)
-        self.set_right_drive(iteration=iteration, values=self.fwds+self.turn)
         self.control[iteration] = self.turn
-        return self.setpoints[iteration], self.control[iteration]
+        intention = [  # Intention of size n_drives for both brain and spine
+            (self.fwds[index]-self.turn)
+            if (
+                    index in self.drives.spine_left_indices
+                    or index in self.drives.brain_left_indices
+            )
+            else (self.fwds[index]+self.turn)
+            if (
+                    index in self.drives.spine_right_indices
+                    or index in self.drives.brain_right_indices
+            )
+            else 0
+            for index in range(self.n_drives)
+        ]
+        # Write to brain
+        for drive_index in self.drives.brain_left_indices:
+            self.drives.array[
+                min(iteration, self.n_iterations-1),
+                drive_index,
+            ] = self.fwds[drive_index]-self.turn
+        for drive_index in self.drives.brain_right_indices:
+            self.drives.array[
+                min(iteration, self.n_iterations-1),
+                drive_index,
+            ] = self.fwds[drive_index]+self.turn
+        return intention
 
-    def step(self, iteration, time, timestep):
+    def step(self, iteration: int, time: float, timestep: float):
         """Step"""
-        self.update(
+        intention = self.update_intention(
             iteration=iteration,
             timestep=timestep,
             pos=np.array(self.animat_data.sensors.links.urdf_position(
@@ -299,6 +334,8 @@ class OrientationFollower(DescendingDrive):
                 indices=self.links_indices,
             )+self.heading_offset,
         )
+        self.set_left_drives(iteration=iteration, values=intention)
+        self.set_right_drives(iteration=iteration, values=intention)
 
 
 class DistributedOrientationFollower(OrientationFollower):
