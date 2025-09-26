@@ -164,21 +164,62 @@ class OscillatorNetworkState(OscillatorNetworkStateCy):
 
 
 class DriveArray(DriveArrayCy):
-    """Drive array"""
+    """Drive array
+
+    Drives can be for the left or right, and of type brain or spine.
+
+    """
 
     def __init__(
             self,
             array: NDARRAY_V2_D,
-            left_indices: NDARRAY_V1_I,
-            right_indices: NDARRAY_V1_I,
-            contacts_indices: List[List[int]] = None,
+            brain_left_indices: NDARRAY_V1_I,
+            brain_right_indices: NDARRAY_V1_I,
+            spine_left_indices: NDARRAY_V1_I,
+            spine_right_indices: NDARRAY_V1_I,
+            contacts_indices: List[List[int]] | None = None,
     ):
         super().__init__(
             array=array,
-            left_indices=left_indices,
-            right_indices=right_indices,
+            brain_left_indices=brain_left_indices,
+            brain_right_indices=brain_right_indices,
+            spine_left_indices=spine_left_indices,
+            spine_right_indices=spine_right_indices,
         )
+        indices_all = [
+            (brain_left_indices, "brain_left_indices"),
+            (brain_right_indices, "brain_right_indices"),
+            (spine_left_indices, "spine_left_indices"),
+            (spine_right_indices, "spine_right_indices"),
+        ]
+        for indices_i, (indices, indices_name) in enumerate(indices_all):
+            index_set = [0, 1, 2, 3]
+            index_set.remove(indices_i)
+            for i in index_set:
+                for index in indices:
+                    assert index not in indices_all[i][0], (
+                        f'{index=} from {indices_name}'
+                        f' already in {indices_all[i][1]}'
+                        f'\n{brain_left_indices=}'
+                        f'\n{brain_right_indices=}'
+                        f'\n{spine_left_indices=}'
+                        f'\n{spine_right_indices=}'
+                    )
         self.contacts_indices = contacts_indices
+
+    def spine_indices(self):
+        """Spine indices"""
+        left = np.array(self.spine_left_indices, dtype=np.uintc)
+        right = np.array(self.spine_right_indices, dtype=np.uintc)
+        # return np.concatenate([left, right[~np.isin(right, left)]])
+        return np.concatenate([left, right])
+
+    def brain_indices(self):
+        """Brain indices"""
+        left = np.array(self.brain_left_indices, dtype=np.uintc)
+        right = np.array(self.brain_right_indices, dtype=np.uintc)
+        # return np.concatenate([left, right[~np.isin(right, left)]])
+        return np.concatenate([left, right])
 
     @classmethod
     def from_animat_options(
@@ -187,8 +228,9 @@ class DriveArray(DriveArrayCy):
             n_iterations: int,
     ):
         """From initial drive"""
-        control = animat_options.control
-        initial_drives = control.network.drives_init()
+        control: AmphibiousControlOptions = animat_options.control
+        network: AmphibiousNetworkOptions = control.network
+        initial_drives = network.drives_init()
         drive_size = len(initial_drives)
         drive_array = np.full(
             shape=[n_iterations, drive_size],
@@ -198,8 +240,10 @@ class DriveArray(DriveArrayCy):
         drive_array[0, :] = initial_drives
         return cls(
             array=drive_array,
-            left_indices=control.network.drives_left_indices(),
-            right_indices=control.network.drives_right_indices(),
+            brain_left_indices=network.drives_brain_left_indices(),
+            brain_right_indices=network.drives_brain_right_indices(),
+            spine_left_indices=network.drives_left_indices(),
+            spine_right_indices=network.drives_right_indices(),
             contacts_indices=control.drives_contacts_indices(),
         )
 
@@ -212,37 +256,76 @@ class DriveArray(DriveArrayCy):
         ]
         return cls(
             array=dictionary['array'],
-            left_indices=dictionary['left_indices'],
-            right_indices=dictionary['right_indices'],
+            brain_left_indices=dictionary['brain_left_indices'],
+            brain_right_indices=dictionary['brain_right_indices'],
+            spine_left_indices=dictionary['spine_left_indices'],
+            spine_right_indices=dictionary['spine_right_indices'],
             contacts_indices=contacts_indices,
         )
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(self, iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         contacts_indices = self.contacts_indices
         if contacts_indices:
             maxlen = max(len(indices) for indices in contacts_indices)
-            contacts_indices = np.full(
+            contacts_indices_arr = np.full(
                 shape=[len(contacts_indices), maxlen],
                 fill_value=-1,
             )
-            positives =  np.arange(self.array.shape[0])
+            positives = np.arange(self.array.shape[0])
             for indices_i, indices in enumerate(self.contacts_indices):
                 for index_i, index in enumerate(indices):
-                    contacts_indices[indices_i, index_i] = positives[index]
+                    contacts_indices_arr[indices_i, index_i] = positives[index]
+            contacts_indices = contacts_indices_arr.tolist()
         return {
             'array': self.array,
-            'left_indices': to_array(self.left_indices),
-            'right_indices': to_array(self.right_indices),
+            'brain_left_indices': to_array(self.brain_left_indices),
+            'brain_right_indices': to_array(self.brain_right_indices),
+            'spine_left_indices': to_array(self.spine_left_indices),
+            'spine_right_indices': to_array(self.spine_right_indices),
             'contacts_indices': contacts_indices,
         }
 
-    def plot(
+    def plot_brain(
             self,
             times: NDARRAY_V1,
     ) -> Figure:
-        """Plot phases"""
+        """Plot brain drives"""
+        fig = plt.figure('Drives - Brain')
+        data = np.array(self.array).T
+        for i in self.brain_left_indices:
+            plt.plot(times, data[i, :len(times)], label=f'D{i} BL')
+        for i in self.brain_right_indices:
+            plt.plot(times, data[i, :len(times)], label=f'D{i} BR')
+        plt.xlabel('Times [s]')
+        plt.ylabel('Drive value')
+        plt.grid(True)
+        plt.legend()
+        return fig
+
+    def plot_spine(
+            self,
+            times: NDARRAY_V1,
+    ) -> Figure:
+        """Plot spine drives"""
+        fig = plt.figure('Drives - Spine')
+        data = np.array(self.array).T
+        for i in self.spine_left_indices:
+            plt.plot(times, data[i, :len(times)], label=f'D{i} SL')
+        for i in self.spine_right_indices:
+            plt.plot(times, data[i, :len(times)], label=f'D{i} SR')
+        plt.xlabel('Times [s]')
+        plt.ylabel('Drive value')
+        plt.grid(True)
+        plt.legend()
+        return fig
+
+    def plot_all(
+            self,
+            times: NDARRAY_V1,
+    ) -> Figure:
+        """Plot all drives"""
         fig = plt.figure('Drives')
         for i, data in enumerate(np.transpose(np.array(self.array))):
             plt.plot(times, data[:len(times)], label=i)
@@ -251,6 +334,17 @@ class DriveArray(DriveArrayCy):
         plt.grid(True)
         plt.legend()
         return fig
+
+    def plot(
+            self,
+            times: NDARRAY_V1,
+    ) -> dict[str, Figure]:
+        """Plot drives"""
+        return {
+            'drives': self.plot_all(times),
+            'drives_brain': self.plot_brain(times),
+            'drives_spine': self.plot_spine(times),
+        }
 
 
 class DriveDependentArray(DriveDependentArrayCy):
@@ -263,10 +357,15 @@ class DriveDependentArray(DriveDependentArrayCy):
             bias: float,
             low: float,
             high: float,
-            saturation: float,
+            saturation_low: float,
+            saturation_high: float,
     ):
         """From each parameter"""
-        return cls(np.array([gain, bias, low, high, saturation]))
+        return cls(np.array([
+            gain, bias,
+            low, high,
+            saturation_low, saturation_high,
+        ]))
 
 
 class Oscillators(OscillatorsCy):
@@ -344,7 +443,7 @@ class Oscillators(OscillatorsCy):
             modular_amplitudes=dictionary['modular_amplitudes'],
         )
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(self, iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -370,7 +469,7 @@ class OscillatorConnectivity(OscillatorsConnectivityCy):
             desired_phases=dictionary['desired_phases'],
         )
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(self, iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -422,7 +521,7 @@ class JointsConnectivity(JointsConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, _iteration: int = None) -> Dict:
+    def to_dict(self, _iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         return {
             'connections': to_array(self.connections.array),
@@ -456,7 +555,7 @@ class ContactsConnectivity(ContactsConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, _iteration: int = None) -> Dict:
+    def to_dict(self, _iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         return {
             'connections': to_array(self.connections.array),
@@ -488,7 +587,7 @@ class XfrcConnectivity(XfrcConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(self, iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -524,7 +623,7 @@ class NetworkParameters(NetworkParametersCy):
             ),
         ) if dictionary else None
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(self, iteration: int | None = None) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {

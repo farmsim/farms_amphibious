@@ -11,6 +11,8 @@ from farms_core.io.yaml import yaml2pyobject
 from farms_core.simulation.options import SimulationOptions
 from farms_amphibious.data.data import AmphibiousData
 
+from ..data.network import DriveArray
+
 
 class PotentialMap(ABC):
     """Potential map"""
@@ -105,48 +107,69 @@ class CirclePotentialMap(PotentialMap):
 class DescendingDrive(ABC):
     """Descending drive"""
 
-    def __init__(self, drives):
+    def __init__(self, drives: DriveArray):
         super().__init__()
-        self.drives = drives
-        self.n_drives = np.shape(drives.array)[1]
-        self.n_iterations = np.shape(drives.array)[0]
-        self.setpoints = np.zeros(self.n_iterations)
-        self.control = np.zeros(self.n_iterations)
+        self.drives: DriveArray = drives
+        self.n_drives: int = np.shape(drives.array)[1]
+        self.n_iterations: int = np.shape(drives.array)[0]
+        self._drives_vector = np.ones(self.n_drives)
 
     @abstractmethod
-    def step(self, iteration, time, timestep):
+    def step(self, iteration: int, time: float, timestep: float):
         """Step"""
         raise NotImplementedError
 
-    def get_left_drive(self, iteration):
-        """Get forward drive"""
-        return self.drives.array[
-            min(iteration, self.n_iterations-1),
-            self.drives.left_indices[0],
-        ]
+    def get_left_drives(self, iteration: int):
+        """Get left drives"""
+        return self.drives.array[iteration, self.drives.spine_left_indices[0]]
 
-    def get_right_drive(self, iteration):
-        """Get turn drive"""
-        return self.drives.array[
-            min(iteration, self.n_iterations-1),
-            self.drives.right_indices[0],
-        ]
+    def get_right_drives(self, iteration: int):
+        """Get right drives"""
+        return self.drives.array[iteration, self.drives.spine_right_indices[0]]
 
-    def set_left_drive(self, iteration, values):
-        """Set forward drive"""
-        for index in self.drives.left_indices:
-            self.drives.array[
-                min(iteration, self.n_iterations-1),
-                index,
-            ] = values[index]
+    def set_left_drives(
+            self,
+            iteration: int,
+            values,
+            brain: bool = True,
+    ):
+        """Set forward drives"""
+        for index in self.drives.spine_left_indices:
+            self.drives.array[iteration, index] = values[index]
+        if brain:
+            for index in self.drives.brain_left_indices:
+                self.drives.array[iteration, index] = values[index]
 
-    def set_right_drive(self, iteration, values):
-        """Set turn drive"""
-        for index in self.drives.right_indices:
-            self.drives.array[
-                min(iteration, self.n_iterations-1),
-                index,
-            ] = values[index]
+    def set_right_drives(
+            self,
+            iteration: int,
+            values,
+            brain: bool = True,
+    ):
+        """Set right drives"""
+        for index in self.drives.spine_right_indices:
+            self.drives.array[iteration, index] = values[index]
+        if brain:
+            for index in self.drives.brain_right_indices:
+                self.drives.array[iteration, index] = values[index]
+
+    def set_left_drive(
+            self,
+            iteration: int,
+            value: float,
+            brain: bool = True,
+    ):
+        """Set all left drives to a single value"""
+        self.set_left_drives(iteration, value*self._drives_vector, brain)
+
+    def set_right_drive(
+            self,
+            iteration: int,
+            value: float,
+            brain: bool = True,
+    ):
+        """Set all right drives to a single value"""
+        self.set_right_drives(iteration, value*self._drives_vector, brain)
 
 
 def get_orientation_follower_kwargs(

@@ -72,8 +72,10 @@ cdef class OscillatorNetworkStateCy(DoubleArray2D):
 
 cdef class DriveArrayCy(DoubleArray2D):
     """Drive array"""
-    cdef public UITYPEv1 left_indices
-    cdef public UITYPEv1 right_indices
+    cdef public UITYPEv1 brain_left_indices
+    cdef public UITYPEv1 brain_right_indices
+    cdef public UITYPEv1 spine_left_indices
+    cdef public UITYPEv1 spine_right_indices
 
 
 cdef class DriveDependentArrayCy(DoubleArray2D):
@@ -96,16 +98,22 @@ cdef class DriveDependentArrayCy(DoubleArray2D):
         """High"""
         return self.array[index, 3]
 
-    cdef inline DTYPE c_saturation(self, unsigned int index) nogil:
-        """Saturation"""
+    cdef inline DTYPE c_saturation_low(self, unsigned int index) nogil:
+        """Saturation low"""
         return self.array[index, 4]
+
+    cdef inline DTYPE c_saturation_high(self, unsigned int index) nogil:
+        """Saturation high"""
+        return self.array[index, 5]
 
     cdef inline DTYPE c_value(self, unsigned int index, DTYPE drive) nogil:
         """Value"""
         return (
             (self.c_gain(index)*drive + self.c_bias(index))
             if self.c_low(index) <= drive <= self.c_high(index)
-            else self.c_saturation(index)
+            else self.c_saturation_low(index)
+            if drive < self.c_low(index)
+            else self.c_saturation_high(index)
         )
 
     cdef inline DTYPE c_value_mod(self, unsigned int index, DTYPE drive1, DTYPE drive2) nogil:
@@ -113,7 +121,9 @@ cdef class DriveDependentArrayCy(DoubleArray2D):
         return (
             (self.c_gain(index)*drive2 + self.c_bias(index))
             if self.c_low(index) <= drive1 <= self.c_high(index)
-            else self.c_saturation(index)
+            else self.c_saturation_low(index)
+            if drive1 < self.c_low(index)
+            else self.c_saturation_high(index)
         )
 
 
@@ -242,4 +252,4 @@ cdef class JointsControlArrayCy(DriveDependentArrayCy):
 
     cdef inline DTYPE c_rate(self, unsigned int index) nogil:
         """Rate"""
-        return self.array[index, 5]
+        return self.array[index, 6]
