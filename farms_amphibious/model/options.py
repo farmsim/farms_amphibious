@@ -518,14 +518,12 @@ class AmphibiousLinkOptions(LinkOptions):
             collisions=kwargs.pop('collisions'),
             friction=kwargs.pop('friction'),
             extras=kwargs.pop('extras', {}),
+            density=kwargs.pop('density'),
+            drag_coefficients=kwargs.pop('drag_coefficients'),
+            fluid_interaction=kwargs.pop('fluid_interaction'),
         )
-        self.density = kwargs.pop('density')
-        self.swimming = kwargs.pop('swimming')
-        self.drag_coefficients = kwargs.pop('drag_coefficients')
         self.mass_multiplier: float = kwargs.pop('mass_multiplier')
         assert not kwargs, f'Unknown kwargs: {kwargs}'
-
-
 
 
 class AmphibiousControlOptions(ControlOptions):
