@@ -421,16 +421,19 @@ class AmphibiousController(JointMuscleController):
     @classmethod
     def from_options(
             cls,
-            animat_data: AmphibiousData,
-            animat_options: AmphibiousOptions,
+            config: dict,
             experiment_options: ExperimentOptions,
-            animat_i: int,  # Animat index
+            animat_i: int,
+            animat_data: AnimatData,
+            animat_options: AnimatOptions,
     ):
         """From options
 
         animat_options = experiment_options.animats[animat_i]
 
         """
+        del config
+        del animat_i
         joints_names = animat_options.control.joints_names()
         drive = None
         animat_network = NetworkODE(
