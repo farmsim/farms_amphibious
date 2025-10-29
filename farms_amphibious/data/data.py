@@ -226,7 +226,6 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         """Load data from dictionary"""
         n_oscillators = dictionary.pop('n_oscillators')
         return cls(
-            timestep=dictionary['timestep'],
             state=OscillatorNetworkState(dictionary['state'], n_oscillators),
             network=NetworkParameters.from_dict(dictionary['network']),
             joints=JointsControlArrayCy(
