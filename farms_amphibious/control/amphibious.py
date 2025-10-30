@@ -4,6 +4,8 @@ import os
 from typing import Dict, List, Tuple, Callable, Union
 
 import numpy as np
+from dm_control.rl.control import Task
+from dm_control.mjcf.physics import Physics
 
 from farms_core.io.yaml import yaml2pyobject
 from farms_core.model.data import AnimatData
@@ -227,16 +229,14 @@ class JointMuscleController(AnimatController):
                 bias=np.array(self.joints_map.transform_bias, dtype=np.double),
             )
 
-    def step(
-            self,
-            iteration: int,
-            time: float,
-            timestep: float,
-    ):
-        """Control step"""
-        self.network.step(iteration, time, timestep)
+    def before_step(self, task: Task, action, physics: Physics):
+        """Before step"""
+        del action
+        time = physics.time()
+        index = task.iteration % task.buffer_size
+        self.network.step(index, time, task.timestep)
         for net2joints in self.network2joints.values():
-            net2joints.step(iteration)
+            net2joints.step(index)
 
     def positions(
             self,
