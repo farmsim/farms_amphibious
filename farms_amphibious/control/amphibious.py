@@ -470,18 +470,27 @@ class AmphibiousController(JointMuscleController):
             drive=drive,
         )
 
-    def step(
-            self,
-            iteration: int,
-            time: float,
-            timestep: float,
-    ):
-        """Control step"""
+    def initialize_episode(self, task: Task, physics: Physics):
+        """Initialize episode"""
+        self.animat_data.sensors.links.array[1:, :, :] = 0
+        self.animat_data.sensors.joints.array[1:, :, :] = 0
+        self.animat_data.sensors.contacts.array[1:, :, :] = 0
+        self.animat_data.sensors.xfrc.array[1:, :, :] = 0
         if self.drive is not None:
-            self.drive.step(iteration, time, timestep)
-        self.network.step(iteration, time, timestep)
+            self.drive.drives.array[1:, :] = 0
+        self.network.initialize_episode()
+
+    def before_step(self, task: Task, action, physics: Physics):
+        """Before step"""
+        del action
+        time = physics.time()
+        timestep = physics.timestep()
+        index = task.iteration % task.buffer_size
+        if self.drive is not None:
+            self.drive.step(index, time, timestep)
+        self.network.step(index, time, timestep)
         for net2joints in self.network2joints.values():
-            net2joints.step(iteration)
+            net2joints.step(index)
 
     def positions_network(
             self,
