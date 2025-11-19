@@ -232,9 +232,8 @@ class JointMuscleController(AnimatController):
     def before_step(self, task: Task, action, physics: Physics):
         """Before step"""
         del action
-        time = physics.time()
         index = task.iteration % task.buffer_size
-        self.network.step(index, time, task.timestep)
+        self.network.step(index, physics.time(), physics.timestep())
         for net2joints in self.network2joints.values():
             net2joints.step(index)
 

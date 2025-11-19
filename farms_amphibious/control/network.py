@@ -40,9 +40,18 @@ class NetworkODE(AnimatNetwork):
         super().__init__(data=data, n_iterations=np.shape(state_array)[0])
         self.dstate = np.zeros_like(data.state.array[0, :])
         self.ode: Callable = kwargs.pop('ode', ode_oscillators_sparse)
+        self.integrator = integrator
+        self.integrator_kwargs = kwargs
         self.solver: ODE = integrate.ode(f=self.ode)
-        self.solver.set_integrator(integrator, **kwargs)
-        self.solver.set_initial_value(y=state_array[0, :], t=0.0)
+        self.initialize_episode()
+
+    def initialize_episode(self):
+        """Initialize episode"""
+        self.solver: ODE = integrate.ode(f=self.ode)
+        self.solver.set_integrator(self.integrator, **self.integrator_kwargs)
+        self.solver.set_initial_value(y=self.data.state.array[0, :], t=0.0)
+        self.data.state.array[1:, :] = 0
+        self.dstate[:] = 0
 
     def copy_next_drive(self, iteration):
         """Set initial drive"""
@@ -98,7 +107,6 @@ class NetworkODE(AnimatNetwork):
                 pylog.warning('%s\n\nResetting to previous iteration', message)
                 self.solver.set_initial_value(y=self.solver.y, t=time+timestep)
         # Handle drive
-        self.data.sensors.visuals
         if iteration < self.n_iterations-1:
             self.copy_next_drive(iteration)
         if checks:
