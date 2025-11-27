@@ -130,6 +130,7 @@ class JointMuscleController(AnimatController):
                 },
                 joints_control_types=joints_control_types,
             ),
+            substep=True,
         )
 
         self.network: AnimatNetwork = animat_network
