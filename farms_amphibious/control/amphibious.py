@@ -485,11 +485,24 @@ class AmphibiousController(JointMuscleController):
         time = physics.time()
         timestep = physics.timestep()
         index = task.iteration % task.buffer_size
+        self.step(iteration=index, time=time, timestep=timestep)
+
+    def step(
+            self,
+            iteration: int,
+            time: float,
+            timestep: float,
+    ):
+        """Control step
+
+        This function is needed for running the controller without simulation.
+
+        """
         if self.drive is not None:
-            self.drive.step(index, time, timestep)
-        self.network.step(index, time, timestep)
+            self.drive.step(iteration, time, timestep)
+        self.network.step(iteration, time, timestep)
         for net2joints in self.network2joints.values():
-            net2joints.step(index)
+            net2joints.step(iteration)
 
     def positions_network(
             self,
