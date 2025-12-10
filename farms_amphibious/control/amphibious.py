@@ -130,6 +130,7 @@ class JointMuscleController(AnimatController):
                 },
                 joints_control_types=joints_control_types,
             ),
+            substep=True,
         )
 
         self.network: AnimatNetwork = animat_network
@@ -232,9 +233,8 @@ class JointMuscleController(AnimatController):
     def before_step(self, task: Task, action, physics: Physics):
         """Before step"""
         del action
-        time = physics.time()
         index = task.iteration % task.buffer_size
-        self.network.step(index, time, task.timestep)
+        self.network.step(index, physics.time(), physics.timestep())
         for net2joints in self.network2joints.values():
             net2joints.step(index)
 
@@ -470,13 +470,35 @@ class AmphibiousController(JointMuscleController):
             drive=drive,
         )
 
+    def initialize_episode(self, task: Task, physics: Physics):
+        """Initialize episode"""
+        self.animat_data.sensors.links.array[1:, :, :] = 0
+        self.animat_data.sensors.joints.array[1:, :, :] = 0
+        self.animat_data.sensors.contacts.array[1:, :, :] = 0
+        self.animat_data.sensors.xfrc.array[1:, :, :] = 0
+        if self.drive is not None:
+            self.drive.drives.array[1:, :] = 0
+        self.network.initialize_episode()
+
+    def before_step(self, task: Task, action, physics: Physics):
+        """Before step"""
+        del action
+        time = physics.time()
+        timestep = physics.timestep()
+        index = task.iteration % task.buffer_size
+        self.step(iteration=index, time=time, timestep=timestep)
+
     def step(
             self,
             iteration: int,
             time: float,
             timestep: float,
     ):
-        """Control step"""
+        """Control step
+
+        This function is needed for running the controller without simulation.
+
+        """
         if self.drive is not None:
             self.drive.step(iteration, time, timestep)
         self.network.step(iteration, time, timestep)
