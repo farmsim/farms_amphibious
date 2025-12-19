@@ -42,45 +42,56 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
         cdef DTYPEv1 velocities = self.joints_data.velocities(iteration)
 
         # For each muscle
-        for joint_i in range(self.n_joints):
+        for muscle_i in range(self.n_joints):
 
-            joint_data_i = self.indices[joint_i]
+            joint_data_i = self.indices[muscle_i]
 
             # Offsets
-            self.joints_offsets[joint_i] = (
-                self.transform_gain[joint_data_i]
-                *offsets[joint_data_i]
-                + self.transform_bias[joint_data_i]
-            )
+            self.joints_offsets[muscle_i] = offsets[muscle_i]
 
             # Data
-            osc_0 = self.osc_indices[0][joint_i]
-            osc_1 = self.osc_indices[1][joint_i]
+            osc_0 = self.osc_indices[0][muscle_i]
+            osc_1 = self.osc_indices[1][muscle_i]
             neural_diff = neural_activity[osc_1] - neural_activity[osc_0]
             neural_sum = neural_activity[osc_0] + neural_activity[osc_1]
-            m_delta_phi = self.joints_offsets[joint_i] - positions[joint_data_i]
+            m_delta_phi = self.joints_offsets[muscle_i] - (
+                positions[joint_data_i] - self.transform_bias[joint_data_i]
+            )/self.transform_gain[joint_data_i]  # Amphibious convention space
 
             # Torques
-            active_torque = self.parameters[joint_i][ALPHA]*neural_diff
-            stiffness_intermediate = (
-                self.parameters[joint_i][BETA]
-                *m_delta_phi
-                *self.transform_gain[joint_data_i]
+            active_torque = (
+                self.parameters[muscle_i][ALPHA]
+                *neural_diff
+                *self.transform_gain[joint_data_i]  # SDF space
             )
-            active_stiffness = neural_sum*stiffness_intermediate
-            passive_stiffness = (
-                self.parameters[joint_i][GAMMA]
+            stiffness_intermediate = (
+                self.parameters[muscle_i][BETA]
+                *m_delta_phi
+            )
+            active_stiffness = (
+                neural_sum
                 *stiffness_intermediate
+                *self.transform_gain[joint_data_i]  # SDF space
+            )
+            passive_stiffness = (
+                self.parameters[muscle_i][GAMMA]
+                *stiffness_intermediate
+                *self.transform_gain[joint_data_i]  # SDF space
             )
             damping = -(
-                self.parameters[joint_i][DELTA]
+                self.parameters[muscle_i][DELTA]
                 *velocities[joint_data_i]
-                *self.transform_gain[joint_data_i]
             )
             friction = -(
-                self.parameters[joint_i][EPSILON]
+                self.parameters[muscle_i][EPSILON]
                 *sign(velocities[joint_data_i])
-                *self.transform_gain[joint_data_i]
+            )
+
+            # Transform to SDF space
+            self.joints_offsets[muscle_i] = (
+                self.transform_gain[joint_data_i]
+                *self.joints_offsets[muscle_i]
+                + self.transform_bias[joint_data_i]
             )
 
             # Log
