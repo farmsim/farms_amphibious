@@ -2,7 +2,10 @@
 
 import numpy as np
 from scipy.interpolate import interp1d
+from farms_core.model.data import AnimatData
+from farms_core.model.options import AnimatOptions
 from farms_core.model.control import AnimatController, ControlType
+from farms_core.experiment.options import ExperimentOptions
 
 
 def kinematics_interpolation(
@@ -131,6 +134,52 @@ class KinematicsController(AnimatController):
             n_iterations=n_iterations,
         )
         self.animat_data = animat_data
+
+    @classmethod
+    def from_options(
+            cls,
+            config: dict,
+            experiment_options: ExperimentOptions,
+            animat_i: int,
+            animat_data: AnimatData,
+            animat_options: AnimatOptions,
+    ):
+        """From options"""
+        joints_names = animat_options.control.joints_names()
+        joints_control_types = {
+            motor.joint_name: ControlType.from_string_list(
+                motor.control_types,
+            )
+            for motor in animat_options.control.motors
+        }
+        joints_names_per_type = AnimatController.joints_from_control_types(
+            joints_names=joints_names,
+            joints_control_types=joints_control_types,
+        )
+        max_torques = {
+            motor.joint_name: motor.limits_torque[1]
+            for motor in animat_options.control.motors
+        }
+        max_torques_per_type = AnimatController.max_torques_from_control_types(
+            joints_names=joints_names,
+            max_torques=max_torques,
+            joints_control_types=joints_control_types,
+        )
+        return KinematicsController(
+            joints_names=joints_names_per_type,
+            kinematics=np.genfromtxt(config['kinematics_file'], delimiter=','),
+            sampling=config['kinematics_sampling'],
+            indices=config['kinematics_indices'],
+            time_index=config['kinematics_time_index'],
+            invert_motors=config['kinematics_invert'],
+            degrees=config['kinematics_degrees'],
+            timestep=experiment_options.simulation.physics.timestep,
+            n_iterations=experiment_options.simulation.runtime.n_iterations,
+            animat_data=animat_data,
+            max_torques=max_torques_per_type,
+            init_time=config['kinematics_start'],
+            end_time=config['kinematics_end'],
+        )
 
     def positions(self, iteration, time, timestep):
         """Postions"""
