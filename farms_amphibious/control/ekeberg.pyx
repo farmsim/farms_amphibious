@@ -50,8 +50,8 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
             self.joints_offsets[muscle_i] = offsets[muscle_i]
 
             # Data
-            osc_0 = self.osc_indices[0][muscle_i]
-            osc_1 = self.osc_indices[1][muscle_i]
+            osc_0 = self.osc_indices[0][joint_data_i]
+            osc_1 = self.osc_indices[1][joint_data_i]
             neural_diff = neural_activity[osc_1] - neural_activity[osc_0]
             neural_sum = neural_activity[osc_0] + neural_activity[osc_1]
             m_delta_phi = self.joints_offsets[muscle_i] - (
@@ -60,12 +60,12 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
 
             # Torques
             active_torque = (
-                self.parameters[muscle_i][ALPHA]
+                self.parameters[joint_data_i][ALPHA]
                 *neural_diff
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             stiffness_intermediate = (
-                self.parameters[muscle_i][BETA]
+                self.parameters[joint_data_i][BETA]
                 *m_delta_phi
             )
             active_stiffness = (
@@ -74,16 +74,16 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             passive_stiffness = (
-                self.parameters[muscle_i][GAMMA]
+                self.parameters[joint_data_i][GAMMA]
                 *stiffness_intermediate
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             damping = -(
-                self.parameters[muscle_i][DELTA]
+                self.parameters[joint_data_i][DELTA]
                 *velocities[joint_data_i]
             )
             friction = -(
-                self.parameters[muscle_i][EPSILON]
+                self.parameters[joint_data_i][EPSILON]
                 *sign(velocities[joint_data_i])
             )
 
