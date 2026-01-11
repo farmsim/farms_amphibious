@@ -894,10 +894,10 @@ class KinematicsControlOptions(ControlOptions):
                 AmphibiousMotorOptions(**motor)
                 for motor in kwargs.pop('motors')
             ],
-            muscles=kwargs.pop('muscles', []),
         )
         self.hill_muscles = kwargs.pop('hill_muscles', [])
         self.kinematics_file = kwargs.pop('kinematics_file')
+        self.kinematics_v_file = kwargs.pop('kinematics_v_file',None)
         self.kinematics_sampling = kwargs.pop('kinematics_sampling')
         self.kinematics_indices = kwargs.pop('kinematics_indices')
         self.kinematics_time_index = kwargs.pop('kinematics_time_index')

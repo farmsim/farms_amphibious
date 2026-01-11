@@ -266,7 +266,6 @@ class AmphibiousKinematicsData(AnimatData):
     ):
         """From animat and simulation options"""
         return cls(
-            timestep=simulation_options.timestep,
             sensors=SensorsData.from_options(
                 animat_options=animat_options,
                 simulation_options=simulation_options,
