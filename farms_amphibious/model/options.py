@@ -889,6 +889,10 @@ class KinematicsControlOptions(ControlOptions):
 
     def __init__(self, **kwargs):
         super().__init__(
+            controller_loader=kwargs.pop(
+                'controller_loader',
+                'farms_amphibious.control.amphibious.KinematicsController',
+            ),
             sensors=(AmphibiousSensorsOptions(**kwargs.pop('sensors'))),
             motors=[
                 AmphibiousMotorOptions(**motor)
