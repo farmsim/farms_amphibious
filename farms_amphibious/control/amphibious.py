@@ -107,6 +107,7 @@ class JointMuscleController(AnimatController):
 
     def __init__(
             self,
+            animat_i: int,
             joints_names: List[str],
             animat_options: AmphibiousOptions,
             animat_data: AmphibiousData,
@@ -117,6 +118,7 @@ class JointMuscleController(AnimatController):
             for motor in animat_options.control.motors
         }
         super().__init__(
+            animat_i=animat_i,
             joints_names=AnimatController.joints_from_control_types(
                 joints_names=joints_names,
                 joints_control_types=joints_control_types,
@@ -355,6 +357,7 @@ class AmphibiousController(JointMuscleController):
 
     def __init__(
             self,
+            animat_i: int,
             joints_names: List[str],
             animat_options: AmphibiousOptions,
             animat_data: AmphibiousData,
@@ -362,6 +365,7 @@ class AmphibiousController(JointMuscleController):
             drive: DescendingDrive = None,
     ):
         super().__init__(
+            animat_i=animat_i,
             joints_names=joints_names,
             animat_options=animat_options,
             animat_data=animat_data,
@@ -433,7 +437,6 @@ class AmphibiousController(JointMuscleController):
 
         """
         del config
-        del animat_i
         joints_names = animat_options.control.joints_names()
         drive = None
         animat_network = NetworkODE(
@@ -463,6 +466,7 @@ class AmphibiousController(JointMuscleController):
                 experiment_options.simulation,
             )
         return cls(
+            animat_i=animat_i,
             joints_names=joints_names,
             animat_options=animat_options,
             animat_data=animat_data,
