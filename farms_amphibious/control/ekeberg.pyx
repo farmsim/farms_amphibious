@@ -79,12 +79,12 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
 
             # Torques
             active_torque = (
-                self.parameters[joint_data_i][ALPHA]
+                self.parameters[muscle_i][ALPHA]
                 *neural_diff
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             stiffness_intermediate = (
-                self.parameters[joint_data_i][BETA]
+                self.parameters[muscle_i][BETA]
                 *m_delta_phi
             )
             active_stiffness = (
@@ -93,16 +93,16 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             passive_stiffness = (
-                self.parameters[joint_data_i][GAMMA]
+                self.parameters[muscle_i][GAMMA]
                 *stiffness_intermediate
                 *self.transform_gain[joint_data_i]  # SDF space
             )
             damping = -(
-                self.parameters[joint_data_i][DELTA]
+                self.parameters[muscle_i][DELTA]
                 *velocities[joint_data_i]
             )
             friction = -(
-                self.parameters[joint_data_i][EPSILON]
+                self.parameters[muscle_i][EPSILON]
                 *sign(velocities[joint_data_i])
             )
 
