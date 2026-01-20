@@ -111,7 +111,6 @@ class JointMuscleController(AnimatController):
             animat_data: AmphibiousData,
             animat_network: AnimatNetwork,
     ):
-        joint_names = animat_options.sensor.joints_names()
         joints_control_names = animat_options.control.joints_names()
         joints_control_types: Dict[str, List[ControlType]] = {
             motor.joint_name: ControlType.from_string_list(motor.control_types)
@@ -140,7 +139,7 @@ class JointMuscleController(AnimatController):
         # joints
         self.joints_map: JointsMap = JointsMap(
             joints=self.joints_names,
-            joints_names=joint_names,
+            joints_sensors_names=self.animat_data.sensors.joints.names,
             animat_options=animat_options,
         )
 
@@ -544,16 +543,15 @@ class JointsMap:
     def __init__(
             self,
             joints: Tuple[List[str]],
-            joints_names: List[str],
+            joints_sensors_names: list[str],
             animat_options: AmphibiousOptions,
     ):
         super().__init__()
         control_types = list(ControlType)
-        self.names = np.array(joints_names)
         self.indices = [  # Indices in animat data for specific control type
             np.array([
                 joint_i
-                for joint_i, joint in enumerate(joints_names)
+                for joint_i, joint in enumerate(joints_sensors_names)
                 if joint in joints[control_type]
             ])
             for control_type in control_types
@@ -564,7 +562,7 @@ class JointsMap:
         }
         self.transform_gain = np.array([
             transform_gains[joint]
-            for joint in joints_names
+            for joint in joints_sensors_names
         ])
         transform_bias = {
             motor.joint_name: motor.transform.bias
@@ -572,7 +570,7 @@ class JointsMap:
         }
         self.transform_bias = np.array([
             transform_bias[joint]
-            for joint in joints_names
+            for joint in joints_sensors_names
         ])
 
 
