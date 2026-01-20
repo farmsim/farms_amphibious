@@ -107,23 +107,25 @@ class JointMuscleController(AnimatController):
 
     def __init__(
             self,
-            joints_names: List[str],
+            animat_i: int,
             animat_options: AmphibiousOptions,
             animat_data: AmphibiousData,
             animat_network: AnimatNetwork,
     ):
+        joints_control_names = animat_options.control.joints_names()
         joints_control_types: Dict[str, List[ControlType]] = {
             motor.joint_name: ControlType.from_string_list(motor.control_types)
             for motor in animat_options.control.motors
         }
         super().__init__(
+            animat_i=animat_i,
             joints_names=AnimatController.joints_from_control_types(
-                joints_names=joints_names,
+                joints_names=joints_control_names,
                 joints_control_types=joints_control_types,
             ),
             muscles_names=[],
             max_torques=AnimatController.max_torques_from_control_types(
-                joints_names=joints_names,
+                joints_names=joints_control_names,
                 max_torques={
                     motor.joint_name: motor.limits_torque[1]
                     for motor in animat_options.control.motors
@@ -139,7 +141,7 @@ class JointMuscleController(AnimatController):
         # joints
         self.joints_map: JointsMap = JointsMap(
             joints=self.joints_names,
-            joints_names=joints_names,
+            joints_sensors_names=self.animat_data.sensors.joints.names,
             animat_options=animat_options,
         )
 
@@ -151,11 +153,7 @@ class JointMuscleController(AnimatController):
         self.equations: Tuple[List[Callable]] = [[], [], []]
 
         # Muscles
-        self.muscle_map: MusclesMap = MusclesMap(
-            joints=joints_names,
-            animat_options=animat_options,
-            animat_data=animat_data,
-        )
+        self.muscle_maps: dict[str, MusclesMap] = {}
 
         # Network to joints interface
         self.network2joints = {}
@@ -166,28 +164,34 @@ class JointMuscleController(AnimatController):
             if torque_equation not in self.equations_dict.values():
                 continue
 
-            joints_indices = np.array([
-                motor_i
-                for motor_i, motor in enumerate(animat_options.control.motors)
+            muscles_joints: list[str] = [
+                motor.joint_name
+                for motor in animat_options.control.motors
                 if motor.equation == torque_equation
+            ]
+            muscles_joints_indices = np.array([
+                self.animat_data.sensors.joints.names.index(joint_name)
+                for joint_name in muscles_joints
             ], dtype=np.uintc)
-            joints_names = np.array(
-                self.animat_data.sensors.joints.names,
-                dtype=object,
-            )[joints_indices].tolist()
+            self.muscle_maps[torque_equation] = MusclesMap(
+                joints=muscles_joints,
+                animat_options=animat_options,
+                animat_data=animat_data,
+            )
 
             self.equations[ControlType.TORQUE] += [{
                 'ekeberg_muscle': self.ekeberg_muscle,
                 'ekeberg_muscle_explicit': self.ekeberg_muscle_explicit,
             }[torque_equation]]
 
+            muscle_map = self.muscle_maps[torque_equation]
             self.network2joints[torque_equation] = EkebergMuscleCy(
-                joints_names=joints_names,
+                joints_names=muscles_joints,
                 joints_data=self.animat_data.sensors.joints,
-                indices=joints_indices,
+                indices=muscles_joints_indices,
                 state=self.animat_data.state,
-                parameters=np.array(self.muscle_map.arrays, dtype=np.double),
-                osc_indices=np.array(self.muscle_map.osc_indices, dtype=np.uintc),
+                parameters=np.array(muscle_map.arrays, dtype=np.double),
+                osc_indices=np.array(muscle_map.osc_indices, dtype=np.uintc),
                 gain=np.array(self.joints_map.transform_gain, dtype=np.double),
                 bias=np.array(self.joints_map.transform_bias, dtype=np.double),
             )
@@ -195,18 +199,16 @@ class JointMuscleController(AnimatController):
         # Passive joint control
         if 'passive' in self.equations_dict.values():
 
-            joints_indices = np.array([
-                motor_i
-                for motor_i, motor in enumerate(animat_options.control.motors)
-                if motor.equation == 'passive'
-            ], dtype=np.uintc)
-            joints_names = np.array(
-                self.animat_data.sensors.joints.names,
-                dtype=object,
-            )[joints_indices].tolist()
-
             self.equations[ControlType.TORQUE] += [self.passive]
-
+            passive_joints: list[str] = [
+                motor.joint_name
+                for motor in animat_options.control.motors
+                if motor.equation == 'passive'
+            ]
+            passive_joints_indices = np.array([
+                self.animat_data.sensors.joints.names.index(joint_name)
+                for joint_name in passive_joints
+            ], dtype=np.uintc)
             self.network2joints['passive'] = PassiveJointCy(
                 stiffness_coefficients=np.array([
                     motor.passive.stiffness_coefficient
@@ -223,9 +225,9 @@ class JointMuscleController(AnimatController):
                     for motor in animat_options.control.motors
                     if motor.equation == 'passive'
                 ], dtype=np.double),
-                joints_names=joints_names,
+                joints_names=passive_joints,
                 joints_data=self.animat_data.sensors.joints,
-                indices=joints_indices,
+                indices=passive_joints_indices,
                 gain=np.array(self.joints_map.transform_gain, dtype=np.double),
                 bias=np.array(self.joints_map.transform_bias, dtype=np.double),
             )
@@ -355,14 +357,14 @@ class AmphibiousController(JointMuscleController):
 
     def __init__(
             self,
-            joints_names: List[str],
+            animat_i: int,
             animat_options: AmphibiousOptions,
             animat_data: AmphibiousData,
             animat_network: AnimatNetwork,
             drive: DescendingDrive = None,
     ):
         super().__init__(
-            joints_names=joints_names,
+            animat_i=animat_i,
             animat_options=animat_options,
             animat_data=animat_data,
             animat_network=animat_network,
@@ -372,23 +374,28 @@ class AmphibiousController(JointMuscleController):
         # Position control
         if 'position' in self.equations_dict.values():
             self.equations[ControlType.POSITION] += [self.positions_network]
-            joints_indices = np.array([
-                motor_i
-                for motor_i, motor in enumerate(animat_options.control.motors)
+            muscles_joints: list[str] = [
+                motor.joint_name
+                for motor in animat_options.control.motors
                 if motor.equation == 'position'
+            ]
+            muscles_joints_indices = np.array([
+                self.animat_data.sensors.joints.names.index(joint_name)
+                for joint_name in muscles_joints
             ], dtype=np.uintc)
-            joints_names = np.array(
-                self.animat_data.sensors.joints.names,
-                dtype=object,
-            )[joints_indices].tolist()
-
+            self.muscle_maps['position'] = MusclesMap(
+                joints=muscles_joints,
+                animat_options=animat_options,
+                animat_data=animat_data,
+            )
+            muscle_map = self.muscle_maps['position']
             self.network2joints['position'] = PositionMuscleCy(
-                joints_names=joints_names,
+                joints_names=muscles_joints,
                 joints_data=self.animat_data.sensors.joints,
-                indices=joints_indices,
+                indices=muscles_joints_indices,
                 state=self.animat_data.state,
-                parameters=np.array(self.muscle_map.arrays, dtype=np.double),
-                osc_indices=np.array(self.muscle_map.osc_indices, dtype=np.uintc),
+                parameters=np.array(muscle_map.arrays, dtype=np.double),
+                osc_indices=np.array(muscle_map.osc_indices, dtype=np.uintc),
                 gain=np.array(self.joints_map.transform_gain, dtype=np.double),
                 bias=np.array(self.joints_map.transform_bias, dtype=np.double),
             )
@@ -396,21 +403,27 @@ class AmphibiousController(JointMuscleController):
         # Phase control
         if 'phase' in self.equations_dict.values():
             self.equations[ControlType.POSITION] += [self.phases_network]
-            joints_indices = np.array([
-                motor_i
-                for motor_i, motor in enumerate(animat_options.control.motors)
+            muscles_joints: list[str] = [
+                motor.joint_name
+                for motor in animat_options.control.motors
                 if motor.equation == 'phase'
+            ]
+            muscles_joints_indices = np.array([
+                self.animat_data.sensors.joints.names.index(joint_name)
+                for joint_name in muscles_joints
             ], dtype=np.uintc)
-            joints_names = np.array(
-                self.animat_data.sensors.joints.names,
-                dtype=object,
-            )[joints_indices].tolist()
+            self.muscle_maps['phase'] = MusclesMap(
+                joints=muscles_joints,
+                animat_options=animat_options,
+                animat_data=animat_data,
+            )
+            muscle_map = self.muscle_maps['phase']
             self.network2joints['phase'] = PositionPhaseCy(
-                joints_names=joints_names,
+                joints_names=muscles_joints,
                 joints_data=self.animat_data.sensors.joints,
-                indices=joints_indices,
+                indices=muscles_joints_indices,
                 state=self.animat_data.state,
-                osc_indices=np.array(self.muscle_map.osc_indices, dtype=np.uintc),
+                osc_indices=np.array(muscle_map.osc_indices, dtype=np.uintc),
                 gain=np.array(self.joints_map.transform_gain, dtype=np.double),
                 bias=np.array(self.joints_map.transform_bias, dtype=np.double),
                 weight=-1e6,
@@ -433,8 +446,6 @@ class AmphibiousController(JointMuscleController):
 
         """
         del config
-        del animat_i
-        joints_names = animat_options.control.joints_names()
         drive = None
         animat_network = NetworkODE(
             data=animat_data,
@@ -463,7 +474,7 @@ class AmphibiousController(JointMuscleController):
                 experiment_options.simulation,
             )
         return cls(
-            joints_names=joints_names,
+            animat_i=animat_i,
             animat_options=animat_options,
             animat_data=animat_data,
             animat_network=animat_network,
@@ -536,16 +547,15 @@ class JointsMap:
     def __init__(
             self,
             joints: Tuple[List[str]],
-            joints_names: List[str],
+            joints_sensors_names: list[str],
             animat_options: AmphibiousOptions,
     ):
         super().__init__()
         control_types = list(ControlType)
-        self.names = np.array(joints_names)
         self.indices = [  # Indices in animat data for specific control type
             np.array([
                 joint_i
-                for joint_i, joint in enumerate(joints_names)
+                for joint_i, joint in enumerate(joints_sensors_names)
                 if joint in joints[control_type]
             ])
             for control_type in control_types
@@ -556,7 +566,7 @@ class JointsMap:
         }
         self.transform_gain = np.array([
             transform_gains[joint]
-            for joint in joints_names
+            for joint in joints_sensors_names
         ])
         transform_bias = {
             motor.joint_name: motor.transform.bias
@@ -564,7 +574,7 @@ class JointsMap:
         }
         self.transform_bias = np.array([
             transform_bias[joint]
-            for joint in joints_names
+            for joint in joints_sensors_names
         ])
 
 
@@ -573,7 +583,7 @@ class MusclesMap:
 
     def __init__(
             self,
-            joints: Tuple[List[str]],
+            joints: List[str],
             animat_options: AmphibiousOptions,
             animat_data: AmphibiousData,
     ):
@@ -582,10 +592,12 @@ class MusclesMap:
             muscle.joint_name: muscle
             for muscle in animat_options.control.muscles
         }
+        for joint in joints:
+            assert joint in joint_muscle_map, (
+                f"{joint=} not in {joint_muscle_map.keys()=}"
+            )
         muscles = [
             joint_muscle_map[joint]
-            if joint in joint_muscle_map
-            else None
             for joint in joints
         ]
         self.arrays = np.array([
@@ -594,22 +606,16 @@ class MusclesMap:
                 muscle.gamma, muscle.delta,
                 muscle.epsilon,
             ]
-            if muscle is not None
-            else [np.finfo(np.double).max]*5
             for muscle in muscles
         ], dtype=np.double)
         osc_names = animat_data.network.oscillators.names
         self.osc_indices = np.array([
             [
                 osc_names.index(muscle.osc1)
-                if muscle is not None
-                else np.iinfo(np.uintc).max
                 for muscle in muscles
             ],
             [
                 osc_names.index(muscle.osc2)
-                if muscle is not None and muscle.osc2 is not None
-                else np.iinfo(np.uintc).max
                 for muscle in muscles
-             ],
+            ],
         ], dtype=np.uintc)

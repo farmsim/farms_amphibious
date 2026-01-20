@@ -209,12 +209,20 @@ class AmphibiousOptions(AnimatOptions):
 
     def state_init(self):
         """Initial states"""
+        active_joints = [
+            muscle.joint_name
+            for muscle in self.control.muscles
+        ]
         return [
-            osc.initial_phase for osc in self.control.network.oscillators
+            osc.initial_phase
+            for osc in self.control.network.oscillators
         ] + [
-            osc.initial_amplitude for osc in self.control.network.oscillators
+            osc.initial_amplitude
+            for osc in self.control.network.oscillators
         ] + [
-            joint.initial[0] for joint in self.morphology.joints
+            joint.initial[0]
+            for joint in self.morphology.joints
+            if joint.name in active_joints
         ]
 
 
