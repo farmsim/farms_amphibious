@@ -34,5 +34,5 @@ scripts/*test*
 *.hdf5
 *.log
 *.dot
-farms_amphibious.egg-info/
+farms_amphibious.egg-info
 *amd64.pxd

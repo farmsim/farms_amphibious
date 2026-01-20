@@ -8,6 +8,7 @@ from scipy import integrate
 from scipy.integrate._ode import ode as ODE
 
 from farms_core.model.data import AnimatData
+from farms_core import pylog
 
 from .ode import ode_oscillators_sparse
 
