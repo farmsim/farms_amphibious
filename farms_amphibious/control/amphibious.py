@@ -111,7 +111,7 @@ class JointMuscleController(AnimatController):
             animat_data: AmphibiousData,
             animat_network: AnimatNetwork,
     ):
-        joint_names = animat_options.morphology.joints_names()
+        joint_sensor_names = animat_data.sensors.joints.names
         joints_control_names = animat_options.control.joints_names()
         joints_control_types: Dict[str, List[ControlType]] = {
             motor.joint_name: ControlType.from_string_list(motor.control_types)
@@ -140,7 +140,7 @@ class JointMuscleController(AnimatController):
         # joints
         self.joints_map: JointsMap = JointsMap(
             joints=self.joints_names,
-            joints_names=joint_names,
+            joints_names=joint_sensor_names,
             animat_options=animat_options,
         )
 
