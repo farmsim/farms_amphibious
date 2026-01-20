@@ -39,7 +39,12 @@ cdef class PassiveJointCy(JointsControlCy):
         # For each muscle
         for joint_i in range(self.n_joints):
 
-            # Joint index
+            # Joint sensor index map - The indices relate to the list of motors
+            # defined in the animat config, with only the motors using the
+            # passive model being present. The given indices, in the order of
+            # the passive joints provided, will provide the mapping to the
+            # indices of the joints sensors data. See the amphibious controller
+            # initialisation JointMuscleController.__init__ for the declaration.
             joint_data_i = self.indices[joint_i]
 
             # Torques
@@ -64,7 +69,7 @@ cdef class PassiveJointCy(JointsControlCy):
             self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_FRICTION] = friction
 
     cpdef np.ndarray stiffness(self, unsigned int iteration):
-        """Torques"""
+        """Stiffness"""
         return get_joints_data(
             iteration=iteration,
             joints_data=self.joints_data,
@@ -74,7 +79,7 @@ cdef class PassiveJointCy(JointsControlCy):
         )
 
     cpdef np.ndarray damping(self, unsigned int iteration):
-        """Torques"""
+        """Damping"""
         return get_joints_data(
             iteration=iteration,
             joints_data=self.joints_data,
@@ -84,7 +89,7 @@ cdef class PassiveJointCy(JointsControlCy):
         )
 
     cpdef np.ndarray friction(self, unsigned int iteration):
-        """Torques"""
+        """Friction"""
         return get_joints_data(
             iteration=iteration,
             joints_data=self.joints_data,

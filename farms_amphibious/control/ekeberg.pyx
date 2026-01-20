@@ -1,6 +1,5 @@
 """Ekeberg muscle model"""
 
-include 'types.pxd'
 include 'sensor_convention.pxd'
 cimport numpy as np
 import numpy as np
@@ -28,7 +27,16 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.activations = np.zeros(self.n_joints, dtype=np.double)
         self.joints_offsets = np.zeros(self.n_joints, dtype=np.double)
+
+    cpdef void update_activations(self, unsigned int iteration):
+        """Update offsets"""
+        self.activations = self.state.outputs(iteration)
+
+    cpdef void update_offsets(self, unsigned int iteration):
+        """Update offsets"""
+        self.joints_offsets = np.array(self.state.offsets(iteration))
 
     cpdef void step(self, unsigned int iteration):
         """Step"""
@@ -36,24 +44,35 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
         cdef DTYPE neural_diff, neural_sum
         cdef DTYPE active_torque, stiffness_intermediate
         cdef DTYPE active_stiffness, passive_stiffness, damping, friction
-        cdef np.ndarray neural_activity = self.state.outputs(iteration)
-        cdef DTYPEv1 offsets = self.state.offsets(iteration)
         cdef DTYPEv1 positions = self.joints_data.positions(iteration)
         cdef DTYPEv1 velocities = self.joints_data.velocities(iteration)
+
+        # Update
+        self.update_activations(iteration)
+        self.update_offsets(iteration)
 
         # For each muscle
         for muscle_i in range(self.n_joints):
 
+            # Muscle indices map - The indices relate to the list of motors
+            # defined in the animat config, with only the motors using the
+            # Ekeberg muscle model being present. The given indices, in the
+            # order of muscles, will provide the mapping to the indices of the
+            # joints sensors data. See the amphibious controller initialisation
+            # AmphibiousController.__init__ for the declaration.
             joint_data_i = self.indices[muscle_i]
 
-            # Offsets
-            self.joints_offsets[muscle_i] = offsets[muscle_i]
+            # Oscillator indices - The indices relate to the list
+            # animat_data.network.oscillators.names defined in the animat
+            # config. The first index accesses the first or second input, while
+            # the second index accesses the index for the neural activity. Refer
+            # to MusclesMap.__init__ for the declaration.
+            osc_0 = self.osc_indices[0][muscle_i]
+            osc_1 = self.osc_indices[1][muscle_i]
 
             # Data
-            osc_0 = self.osc_indices[0][joint_data_i]
-            osc_1 = self.osc_indices[1][joint_data_i]
-            neural_diff = neural_activity[osc_1] - neural_activity[osc_0]
-            neural_sum = neural_activity[osc_0] + neural_activity[osc_1]
+            neural_diff = self.activations[osc_1] - self.activations[osc_0]
+            neural_sum = self.activations[osc_0] + self.activations[osc_1]
             m_delta_phi = self.joints_offsets[muscle_i] - (
                 positions[joint_data_i] - self.transform_bias[joint_data_i]
             )/self.transform_gain[joint_data_i]  # Amphibious convention space
