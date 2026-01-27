@@ -103,7 +103,7 @@ def get_amphibious_controller(
 
 
 class JointMuscleController(AnimatController):
-    """Ekeberg controller"""
+    """Joint muscle controller"""
 
     def __init__(
             self,
@@ -257,7 +257,7 @@ class JointMuscleController(AnimatController):
             iteration: int,
             time: float,
             timestep: float,
-    ) -> Union[Dict[str, float], Tuple]:
+    ) -> Dict[str, float]:
         """Velocities"""
         output: Dict[str, float] = {}
         for equation in self.equations[ControlType.VELOCITY]:
@@ -288,6 +288,36 @@ class JointMuscleController(AnimatController):
             output = dict(zip(
                 self.network2joints['ekeberg_muscle'].joints_names,
                 self.network2joints['ekeberg_muscle'].joints_offsets,
+            ))
+        return output
+
+    def springcoefs(
+            self,
+            iteration: int,
+            time: float,
+            timestep: float,
+    ) -> Dict[str, float]:
+        """Spring coefficients"""
+        output = {}
+        if 'ekeberg_muscle' in self.network2joints:
+            output = dict(zip(
+                self.network2joints['ekeberg_muscle'].joints_names,
+                self.network2joints['ekeberg_muscle'].spring_coefs,
+            ))
+        return output
+
+    def dampingcoefs(
+            self,
+            iteration: int,
+            time: float,
+            timestep: float,
+    ) -> Dict[str, float]:
+        """Damping coefficients"""
+        output = {}
+        if 'ekeberg_muscle' in self.network2joints:
+            output = dict(zip(
+                self.network2joints['ekeberg_muscle'].joints_names,
+                self.network2joints['ekeberg_muscle'].damping_coefs,
             ))
         return output
 

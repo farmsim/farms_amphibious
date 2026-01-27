@@ -29,6 +29,8 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
         super().__init__(*args, **kwargs)
         self.activations = np.zeros(self.n_joints, dtype=np.double)
         self.joints_offsets = np.zeros(self.n_joints, dtype=np.double)
+        self.spring_coefs = np.zeros(self.n_joints, dtype=np.double)
+        self.damping_coefs = np.zeros(self.n_joints, dtype=np.double)
 
     cpdef void update_activations(self, unsigned int iteration):
         """Update offsets"""
@@ -40,7 +42,7 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
 
     cpdef void step(self, unsigned int iteration):
         """Step"""
-        cdef unsigned int joint_i, joint_data_i, osc_0, osc_1
+        cdef unsigned int muscle_i, joint_data_i, osc_0, osc_1
         cdef DTYPE neural_diff, neural_sum
         cdef DTYPE active_torque, stiffness_intermediate
         cdef DTYPE active_stiffness, passive_stiffness, damping, friction
@@ -106,6 +108,12 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
                 *sign(velocities[joint_data_i])
             )
 
+            # Coefficients
+            self.damping_coefs[muscle_i] = self.parameters[muscle_i][DELTA]
+            self.spring_coefs[muscle_i] = self.parameters[muscle_i][BETA]*(
+                neural_sum + self.parameters[muscle_i][GAMMA]
+            )
+
             # Transform to SDF space
             self.joints_offsets[muscle_i] = (
                 self.transform_gain[joint_data_i]
@@ -116,7 +124,7 @@ cdef class EkebergMuscleCy(JointsMusclesCy):
             # Log
             torque = active_torque + active_stiffness + passive_stiffness + damping + friction
             self.joints_data.array[iteration, joint_data_i, JOINT_CMD_TORQUE] = torque
-            self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_ACTIVE] = active_torque + active_stiffness
+            self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_ACTIVE] = active_torque  #  + active_stiffness
             self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_STIFFNESS] = passive_stiffness
             self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_DAMPING] = damping
             self.joints_data.array[iteration, joint_data_i, JOINT_TORQUE_FRICTION] = friction
