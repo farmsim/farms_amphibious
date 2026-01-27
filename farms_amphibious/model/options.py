@@ -525,6 +525,8 @@ class AmphibiousLinkOptions(LinkOptions):
             name=kwargs.pop('name'),
             collisions=kwargs.pop('collisions'),
             friction=kwargs.pop('friction'),
+            solref=kwargs.pop('solref', None),
+            solimp=kwargs.pop('solimp', None),
             extras=kwargs.pop('extras', {}),
             density=kwargs.pop('density'),
             drag_coefficients=kwargs.pop('drag_coefficients'),
