@@ -236,7 +236,11 @@ class JointMuscleController(AnimatController):
         """Before step"""
         del action
         index = task.iteration % task.buffer_size
-        self.network.step(index, physics.time(), physics.timestep())
+        self.network.step(
+            index=index,
+            time=physics.time()/task.units.seconds,
+            timestep=physics.timestep()/task.units.seconds,
+        )
         for net2joints in self.network2joints.values():
             net2joints.step(index)
 
@@ -524,8 +528,8 @@ class AmphibiousController(JointMuscleController):
     def before_step(self, task: Task, action, physics: Physics):
         """Before step"""
         del action
-        time = physics.time()
-        timestep = physics.timestep()
+        time = physics.time()/task.units.seconds
+        timestep = physics.timestep()/task.units.seconds
         index = task.iteration % task.buffer_size
         self.step(iteration=index, time=time, timestep=timestep)
 
