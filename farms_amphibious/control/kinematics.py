@@ -1,14 +1,16 @@
-"""Kinematics"""
+"""Kinematics replay"""
+
+from pathlib import Path
 
 import numpy as np
 from scipy.interpolate import interp1d
-from pathlib import Path
 
+from farms_core import pylog
 from farms_core.experiment.options import ExperimentOptions
 from farms_core.model.control import AnimatController, ControlType
 from farms_core.model.data import AnimatData
 from farms_core.model.options import AnimatOptions
-from farms_core import pylog
+
 
 def kinematics_interpolation(
         kin_times,
@@ -18,10 +20,18 @@ def kinematics_interpolation(
 ):
     """Kinematics interpolations"""
     simulation_duration = timestep*n_iterations
-    pylog.info(f'KINEMATICS: Loaded kinematics data for {max(kin_times)} seconds, Simulation duration {simulation_duration} seconds.')
+    pylog.info(
+        'KINEMATICS: Loaded kinematics data for %s seconds,'
+        ' Simulation duration %s seconds.',
+        max(kin_times),
+        simulation_duration,
+    )
     sim_times = np.arange(0, simulation_duration, timestep)
     assert len(kin_times) == kinematics.shape[0], (
         f'{len(kin_times)=} != {kinematics.shape[0]=}'
+    )
+    assert sim_times[-1] < kin_times[-1], (
+        f"Condition not respected: {sim_times[-1]=} !< {kin_times[-1]=}"
     )
     return interp1d(
         kin_times,
@@ -35,8 +45,8 @@ class KinematicsController(AnimatController):
 
     def __init__(
             self,
+            animat_i,
             joints_names,
-            muscles_names,
             kinematics,
             sampling,
             timestep,
@@ -52,6 +62,7 @@ class KinematicsController(AnimatController):
             **kwargs,
     ):
         super().__init__(
+            animat_i=animat_i,
             joints_names=joints_names,
             max_torques=max_torques,
             muscles_names=[],
@@ -170,15 +181,15 @@ class KinematicsController(AnimatController):
             timestep=timestep,
             n_iterations=n_iterations,
         )
-        if kinematics_v is not None:
-            self.kinematics_v = kinematics_interpolation(
-                kin_times=time_vector,
-                kinematics=kinematics_v,
-                timestep=timestep,
-                n_iterations=n_iterations,
-            )
+        self.kinematics_v = kinematics_interpolation(
+            kin_times=time_vector,
+            kinematics=kinematics_v,
+            timestep=timestep,
+            n_iterations=n_iterations,
+        ) if kinematics_v is not None else None
 
         self.animat_data = animat_data
+
     @classmethod
     def from_options(
             cls,
@@ -193,9 +204,6 @@ class KinematicsController(AnimatController):
         animat_options = experiment_options.animats[animat_i]
 
         """
-        
-        del config
-        del animat_i
         sim_options = experiment_options.simulation
         joints_names = animat_options.control.joints_names()
         joints_control_types = {
@@ -217,16 +225,14 @@ class KinematicsController(AnimatController):
             max_torques=max_torques,
             joints_control_types=joints_control_types,
         )
-        if not Path(animat_options.control.kinematics_file).is_file():
+        if not Path(config['kinematics_file']).is_file():
             raise FileNotFoundError(
-                f"{animat_options.control.kinematics_file} is not a file"
+                f"{config['kinematics_file']} is not a file"
             )
-        
         kinematics_position_target = np.genfromtxt(
-                animat_options.control.kinematics_file,
+                config['kinematics_file'],
                 delimiter=',',
         )
-        
         if 'kinematics_v_file' in animat_options.control:
             if not Path(animat_options.control.kinematics_v_file).is_file():
                 raise FileNotFoundError(
@@ -240,33 +246,35 @@ class KinematicsController(AnimatController):
             kinematics_velocity_target = None
 
         return cls(
+            animat_i=animat_i,
             joints_names=joints_names_per_type,
-            muscles_names=[], # no muscles in kinematics controller, remove in the future?
             kinematics=kinematics_position_target,
             kinematics_v=kinematics_velocity_target,
-            sampling=animat_options.control.kinematics_sampling,
+            sampling=config['kinematics_sampling'],
             timestep=sim_options.physics.timestep,
             n_iterations=sim_options.runtime.n_iterations,
             animat_data=animat_data,
             max_torques=max_torques_per_type,
-            invert_motors=animat_options.control.kinematics_invert,
-            indices=animat_options.control.kinematics_indices,
-            time_index=animat_options.control.kinematics_time_index,
-            degrees=animat_options.control.kinematics_degrees,
-            init_time=animat_options.control.kinematics_start,
-            end_time=animat_options.control.kinematics_end,
+            invert_motors=config['kinematics_invert'],
+            indices=config['kinematics_indices'],
+            time_index=config['kinematics_time_index'],
+            degrees=config['kinematics_degrees'],
+            init_time=config['kinematics_start'],
+            end_time=config['kinematics_end'],
         )
-        
 
     def positions(self, iteration, time, timestep):
         """Postions"""
+        del time, timestep
         return dict(zip(
             self.joints_names[ControlType.POSITION],
             self.kinematics[iteration],
         ))
 
     def velocities(self, iteration, time, timestep):
+        """Velocities"""
+        del time, timestep
         return dict(zip(
             self.joints_names[ControlType.VELOCITY],
             self.kinematics_v[iteration],
-        ))
+        )) if self.kinematics_v is not None else {}
