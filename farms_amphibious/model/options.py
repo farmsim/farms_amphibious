@@ -2472,8 +2472,8 @@ class AmphibiousOscillatorOptions(Options):
         self.amplitude_saturation_low = kwargs.pop('amplitude_saturation_low')
         self.amplitude_saturation_high = kwargs.pop('amplitude_saturation_high')
         self.rate = kwargs.pop('rate')
-        self.modular_phase = kwargs.pop('modular_phase')
-        self.modular_amplitude = kwargs.pop('modular_amplitude')
+        self.modular_phase = kwargs.pop('modular_phase', 0)
+        self.modular_amplitude = kwargs.pop('modular_amplitude', 0)
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
