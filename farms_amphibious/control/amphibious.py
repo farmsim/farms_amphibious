@@ -406,24 +406,24 @@ class AmphibiousController(JointMuscleController):
         self.drive: Union[DescendingDrive, None] = drive
 
         # Position control
-        if 'position' in self.equations_dict.values():
+        if 'position_muscle' in self.equations_dict.values():
             self.equations[ControlType.POSITION] += [self.positions_network]
             muscles_joints: list[str] = [
                 motor.joint_name
                 for motor in animat_options.control.motors
-                if motor.equation == 'position'
+                if motor.equation == 'position_muscle'
             ]
             muscles_joints_indices = np.array([
                 self.animat_data.sensors.joints.names.index(joint_name)
                 for joint_name in muscles_joints
             ], dtype=np.uintc)
-            self.muscle_maps['position'] = MusclesMap(
+            self.muscle_maps['position_muscle'] = MusclesMap(
                 joints=muscles_joints,
                 animat_options=animat_options,
                 animat_data=animat_data,
             )
-            muscle_map = self.muscle_maps['position']
-            self.network2joints['position'] = PositionMuscleCy(
+            muscle_map = self.muscle_maps['position_muscle']
+            self.network2joints['position_muscle'] = PositionMuscleCy(
                 joints_names=muscles_joints,
                 joints_data=self.animat_data.sensors.joints,
                 indices=muscles_joints_indices,
@@ -558,8 +558,8 @@ class AmphibiousController(JointMuscleController):
     ) -> Dict[str, float]:
         """Positions network"""
         return dict(zip(
-            self.network2joints['position'].joints_names,
-            self.network2joints['position'].position_cmds(iteration),
+            self.network2joints['position_muscle'].joints_names,
+            self.network2joints['position_muscle'].position_cmds(iteration),
         ))
 
     def phases_network(

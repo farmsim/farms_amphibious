@@ -21,9 +21,9 @@ cdef class PositionMuscleCy(JointsMusclesCy):
 
             # Data
             joint_data_i = self.indices[joint_i]
-            osc_0 = self.osc_indices[0][joint_data_i]
-            osc_1 = self.osc_indices[1][joint_data_i]
-            neural_diff = neural_activity[osc_0] - neural_activity[osc_1]
+            osc_0 = self.osc_indices[0][joint_i]
+            osc_1 = self.osc_indices[1][joint_i]
+            neural_diff = neural_activity[osc_1] - neural_activity[osc_0]
 
             # Position outputs
             self.joints_data.array[iteration, joint_data_i, JOINT_CMD_POSITION] = (

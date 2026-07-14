@@ -719,7 +719,7 @@ class AmphibiousControlOptions(ControlOptions):
             'max_torques',
             {joint_name: default_max_torque for joint_name in joints_names},
         )
-        default_equation = kwargs.pop('default_equation', 'position')
+        default_equation = kwargs.pop('default_equation', 'position_muscle')
         equations = kwargs.pop(
             'equations',
             {
@@ -743,9 +743,9 @@ class AmphibiousControlOptions(ControlOptions):
                 motor.equation = equations[motor.joint_name]
             if not motor.control_types:
                 motor.control_types = {
-                    'position': ['position'],
                     'phase': ['position'],
                     'ekeberg_muscle': ['velocity', 'torque'],
+                    'position_muscle': ['position'],
                     'ekeberg_muscle_explicit': ['torque'],
                     'passive': ['velocity', 'torque'],
                     'passive_explicit': ['torque'],
@@ -1069,7 +1069,7 @@ class KinematicsControlOptions(ControlOptions):
             'max_torques',
             {joint_name: default_max_torque for joint_name in joints_names},
         )
-        default_equation = kwargs.pop('default_equation', 'position')
+        default_equation = kwargs.pop('default_equation', 'position_muscle')
         equations = kwargs.pop(
             'equations',
             {
