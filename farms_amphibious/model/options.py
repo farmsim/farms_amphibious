@@ -256,6 +256,7 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                 JointOptions(**joint)
                 for joint in kwargs.pop('joints')
             ],
+            tendons=kwargs.pop('tendons', []),
         )
         self.n_joints_body = kwargs.pop('n_joints_body')
         self.n_dof_legs = kwargs.pop('n_dof_legs')
@@ -531,8 +532,9 @@ class AmphibiousLinkOptions(LinkOptions):
             density=kwargs.pop('density'),
             drag_coefficients=kwargs.pop('drag_coefficients'),
             fluid_interaction=kwargs.pop('fluid_interaction'),
+            sites=kwargs.pop('sites', []),
         )
-        self.mass_multiplier: float = kwargs.pop('mass_multiplier')
+        self.mass_multiplier: float = kwargs.pop('mass_multiplier', 1.0)
         assert not kwargs, f'Unknown kwargs: {kwargs}'
 
 
