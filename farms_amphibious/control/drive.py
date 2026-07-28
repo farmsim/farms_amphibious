@@ -501,27 +501,3 @@ def assess_traj(traj, t_traj):
     return distances, indices, np.sum(distances)
 
 
-def drive_from_config(filename, animat_data, simulation_options):
-    """Drive from config"""
-    drive_config = yaml2pyobject(filename)
-    potential_config = drive_config.pop('potential_map')
-    potential_type = potential_config.pop('type')
-    control_function = (
-        DistributedOrientationFollower
-        if potential_type in ('disline', 'discircle')
-        else OrientationFollower
-        if potential_type in ('line', 'circle')
-        else None
-    )
-    assert control_function is not None, f'Unknown {potential_type=}'
-    return control_function(
-        strategy={
-            'line': StraightLinePotentialMap,
-            'circle': CirclePotentialMap,
-            'disline': StraightLinePotentialMap,
-            'discircle': CirclePotentialMap,
-        }[potential_type](**potential_config),
-        animat_data=animat_data,
-        timestep=simulation_options.timestep,
-        **drive_config,
-    )
