@@ -43,10 +43,10 @@ def main():
     convention = AmphibiousConvention.from_amphibious_options(animat_options)
     n_xfrc = len(labels)
     all_indices = list(range(n_xfrc))
-    body_indices = list(range(convention.n_links_body()))
+    body_indices = list(range(convention.n_links_body))
     legs_indices = list(range(
-        convention.n_links_body(),
-        convention.n_links_body()+convention.n_links_legs(),
+        convention.n_links_body,
+        convention.n_links_body+convention.n_links_legs(),
     ))
 
     # Plot

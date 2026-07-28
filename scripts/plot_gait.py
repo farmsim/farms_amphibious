@@ -44,7 +44,7 @@ def main():
     legs_indices = list(range(convention.n_legs))
     body_indices = list(range(
         convention.n_legs,
-        convention.n_legs+convention.n_links_body(),
+        convention.n_legs+convention.n_links_body,
     ))
 
     # Plot Contacts

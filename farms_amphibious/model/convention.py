@@ -11,6 +11,7 @@ class AmphibiousConvention(Options):
     def __init__(self, **kwargs):
         super().__init__()
         self.n_joints_body = kwargs.pop('n_joints_body')
+        self.n_links_body = kwargs.pop('n_links_body', self.n_joints_body+1)
         self.single_osc_body = kwargs.pop('single_osc_body', False)
         self.single_osc_legs = kwargs.pop('single_osc_legs', False)
         self.n_dof_legs = kwargs.pop('n_dof_legs')
@@ -74,10 +75,6 @@ class AmphibiousConvention(Options):
             joints_names=morphology.joints_names(),
             **kwargs,
         )
-
-    def n_links_body(self):
-        """Number of links in body"""
-        return self.n_joints_body+1
 
     def n_links_legs(self):
         """Number of links in legs"""
@@ -313,7 +310,7 @@ class AmphibiousConvention(Options):
     def leglink2index(self, leg_i, side_i, joint_i):
         """leglink2index"""
         n_legs = self.n_legs//2
-        n_body_links = self.n_joints_body + 1
+        n_body_links = self.n_links_body
         n_legs_dof = self.n_dof_legs
         assert 0 <= leg_i < n_legs, f'Leg must be < {n_legs//2}, got {leg_i}'
         assert 0 <= side_i < 2, f'Body side must be < 2, got {side_i}'

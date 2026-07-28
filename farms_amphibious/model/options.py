@@ -259,6 +259,10 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
             tendons=kwargs.pop('tendons', []),
         )
         self.n_joints_body = kwargs.pop('n_joints_body')
+        self.n_links_body = kwargs.pop(
+            'n_links_body',
+            self.n_joints_body+1,
+        )
         self.n_dof_legs = kwargs.pop('n_dof_legs')
         self.n_legs = kwargs.pop('n_legs')
         self.n_joints_passive = kwargs.pop('n_joints_passive')
@@ -268,12 +272,13 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
     def from_options(cls, kwargs):
         """From options"""
         options = {}
+        kwargs_copy = kwargs.copy()
         for kwarg in [
-                'n_joints_body', 'n_dof_legs', 'n_legs',
-                'links_names', 'joints_names',
+                'n_joints_body', 'n_links_body', 'n_dof_legs', 'n_legs',
+                'n_joints_passive', 'links_names', 'joints_names',
         ]:
-            if kwarg in kwargs.copy():
-                options[kwarg] = kwargs.pop(kwarg)
+            if kwarg in kwargs_copy:
+                options[kwarg] = copy(kwargs.pop(kwarg))
         convention = AmphibiousConvention(**options)
         default_lateral_friction = kwargs.pop('default_lateral_friction', 1)
         # Feet handling
@@ -281,6 +286,7 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
         if feet_links is None:
             feet_links = convention.feet_links_names()
         else:  # Feet defined and to be attributed
+            links_names_original = convention.links_names.copy()
             feet_indices = [
                 convention.leglink2index(
                     leg_i=leg_i,
@@ -294,9 +300,25 @@ class AmphibiousMorphologyOptions(MorphologyOptions):
                 f'len({feet_indices}) != len({feet_links})'
             )
             for index, name in zip(feet_indices, feet_links):
+                assert index < len(convention.links_names), (
+                    f'{index} > {len(convention.links_names)=}'
+                    f'\n{convention.links_names=}'
+                    f'\n{feet_links=}'
+                    f'\n{feet_indices=}'
+                )
                 convention.links_names[index] = name
+            for link in links_names_original:
+                if link not in convention.links_names:
+                    pylog.warning(
+                        f'{link=} has been removed from list when handling feet:'
+                        f'\n{convention.links_names=}'
+                        f'\n{links_names_original=}'
+                    )
         # Links and joints
         links_names = convention.links_names
+        assert len(links_names) == len(set(links_names)), (
+            f'Not all links names unique: {links_names}'
+        )
         joints_names = convention.joints_names
         options.pop('links_names', None)
         options.pop('joints_names', None)
@@ -1557,7 +1579,7 @@ class AmphibiousNetworkOptions(Options):
             ]
         drives_init = kwargs.pop('drives_init', [0, 0])
         drive_contact_type = kwargs.pop('drive_contact_type', '')
-        n_links_body = convention.n_links_body()
+        n_links_body = convention.n_links_body
         n_legs_pair = convention.n_legs_pair()
         contacts_body = [
             (name, '')

@@ -223,7 +223,7 @@ def main():
         pos_plot = plot_snapshot_links_positions(
             interpolate=True,
             snapshot_i=i, iteration=iteration, links_sensors=links_sensors,
-            indices=range(convention.n_links_body()),
+            indices=range(convention.n_links_body),
             sep=sep, mov=mov, rot=rot,
             use_links=clargs.use_links,
             **body_mark_options,
