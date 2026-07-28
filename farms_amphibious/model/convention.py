@@ -1,6 +1,31 @@
 """Oscillator naming convention"""
 
+from enum import Enum
 from farms_core.options import Options
+
+
+class BodyPartKind(Enum):
+    BRAIN = 0
+    AXIAL = 1
+    LIMB = 2
+
+
+class Side(Enum):
+    LEFT = 0
+    RIGHT = 1
+
+    def __repr__(self):
+        return self.name.lower()
+
+    @classmethod
+    def from_index(cls, index):
+        """From index"""
+        assert 0 <= index < 2, "Index must be 0 (Left) or 1 (Right)"
+        return cls.LEFT if index == 0 else cls.RIGHT
+
+    def letter(self):
+        """To letter"""
+        return self.name[0].upper()
 
 
 class AmphibiousConvention(Options):
@@ -10,6 +35,7 @@ class AmphibiousConvention(Options):
 
     def __init__(self, **kwargs):
         super().__init__()
+        self.descending_drives_names = ['brain_left', 'brain_right']
         self.n_joints_body = kwargs.pop('n_joints_body')
         self.n_links_body = kwargs.pop('n_links_body', self.n_joints_body+1)
         self.single_osc_body = kwargs.pop('single_osc_body', False)
@@ -43,13 +69,18 @@ class AmphibiousConvention(Options):
                 for leg_i in range(self.n_legs//2)
                 for side_i in range(2)
                 for joint_i in range(self.n_dof_legs)
+            ] + [
+                f'joint_passive_{joint_i}'
+                for joint_i in range(self.n_joints_passive)
             ],
         )
-        n_joints = self.n_joints()
-        assert len(self.joints_names) == n_joints, (
+        n_joints = self.n_joints_all()
+        assert len(self.joints_names) >= n_joints, (
             f'Provided {len(self.joints_names)} names for joints'
-            f' but there should be {n_joints} '
-            f' (body: {self.n_joints_body} legs: {self.n_joints_legs()}):'
+            f' but there should be at least {n_joints} '
+            f' (body: {self.n_joints_body}'
+            f' legs: {self.n_joints_legs()}'
+            f' passive: {self.n_joints_passive}):'
             f'\n{self.joints_names}'
         )
         assert not kwargs, kwargs
@@ -69,6 +100,7 @@ class AmphibiousConvention(Options):
         """From morphology"""
         return cls(
             n_joints_body=morphology['n_joints_body'],
+            n_joints_passive=morphology['n_joints_passive'],
             n_dof_legs=morphology['n_dof_legs'],
             n_legs=morphology['n_legs'],
             links_names=morphology.links_names(),
@@ -83,19 +115,30 @@ class AmphibiousConvention(Options):
     def n_states(self):
         """Number of states"""
         n_osc = self.n_osc()
-        n_joints = self.n_joints()
+        n_joints = self.n_joints_active()
         return (
             n_osc  # Phases
             + n_osc  # Amplitudes
             + n_joints  # Joints offsets
         )
 
-    def n_joints(self):
-        """Number of joints"""
-        return self.n_joints_body + self.n_joints_legs()
+    def n_joints_all(self):
+        """Number of active joints"""
+        return (
+            self.n_joints_body
+            + self.n_joints_legs()
+            + self.n_joints_passive
+        )
+
+    def n_joints_active(self):
+        """Number of active joints"""
+        return (
+            self.n_joints_body
+            + self.n_joints_legs()
+        )
 
     def n_joints_legs(self):
-        """Number of joints"""
+        """Number of leg joints"""
         return self.n_legs*self.n_dof_legs
 
     def n_legs_pair(self):
@@ -201,8 +244,8 @@ class AmphibiousConvention(Options):
 
     def joint2legindices(self, joint_i):
         """Joint index to leg indices"""
-        assert self.n_joints_body <= joint_i < self.n_joints(), (
-            f'{self.n_joints_body} !<= {joint_i} !< {self.n_joints()}'
+        assert self.n_joints_body <= joint_i < self.n_joints_active(), (
+            f'{self.n_joints_body} !<= {joint_i} !< {self.n_joints_active()}'
         )
         j_i = joint_i - self.n_joints_body
         dof_i = j_i % self.n_dof_legs
@@ -253,18 +296,24 @@ class AmphibiousConvention(Options):
     def jointindex2information(self, joint_i):
         """Joint index information"""
         information = {}
-        n_joints = self.n_joints()
+        n_joints = self.n_joints_all()
         assert 0 <= joint_i < n_joints, (
             f'Index {joint_i} bigger than number of joints ({n_joints})'
         )
         information['body'] = joint_i < self.n_joints_body
         if information['body']:
             information['joint_i'] = joint_i
+            information['name'] = self.bodyjoint2name(joint_i)
         else:
             index_i = joint_i - self.n_joints_body
-            information['joint_i'] = index_i % self.n_dof_legs
             information['leg_i'] = index_i // (2*self.n_dof_legs)
-            information['side_i'] = index_i % 2
+            information['side_i'] = (index_i // self.n_dof_legs) % 2
+            information['joint_i'] = index_i % self.n_dof_legs
+            information['name'] = self.legjoint2name(
+                leg_i=information['leg_i'],
+                side_i=information['side_i'],
+                joint_i=information['joint_i'],
+            )
         return information
 
     def oscindex2information(self, osc_i):
@@ -379,3 +428,91 @@ class AmphibiousConvention(Options):
     def contactleglink2name(self, leg_i, side_i):
         """Contact leg link name"""
         return self.leglink2name(leg_i, side_i, self.n_dof_legs-1)
+
+    def n_drives(self):
+        """Number of oscillators"""
+        return self.n_drives_brain() + self.n_osc()
+
+    def n_drives_brain(self):
+        """Number of oscillators"""
+        return len(self.descending_drives_names)
+
+    def drive_brain_name(self, side: Side):
+        """Drive axial name"""
+        return f"drive_brain_{side.letter()}"
+
+    def drive_body_name(self, joint_i: int, side: Side):
+        """Drive axial name"""
+        return f"drive_body_{joint_i}_{side.letter()}"
+
+    def drive_leg_name(self, leg_i: int, side_i: Side, joint_i: int, side: Side):
+        """Drive leg name"""
+        side_i_str = {Side.LEFT: 'L', Side.RIGHT: 'R'}[side_i]
+        return f"drive_leg_{leg_i}_{side_i_str}_{joint_i}_{side.letter()}"
+
+    def drvindex2information(self, drv_i):
+        """Drvillator index information"""
+        information = {}
+        n_drives = self.n_drives()
+        assert 0 <= drv_i < n_drives, (
+            f'Index {drv_i} bigger than number of drives ({n_drives})'
+        )
+        n_drives_brain = self.n_drives_brain()
+        n_drives_body = self.n_osc_body()
+        information['body_part_kind'] = (
+            BodyPartKind.BRAIN
+            if drv_i < n_drives_brain
+            else BodyPartKind.AXIAL
+            if n_drives_brain <= drv_i < n_drives_brain + n_drives_body
+            else BodyPartKind.LIMB
+        )
+        if information['body_part_kind'] is BodyPartKind.BRAIN:
+            information['side'] = Side.from_index(
+                0
+                if self.single_osc_body
+                else (drv_i % 2)
+            )
+        elif information['body_part_kind'] is BodyPartKind.AXIAL:
+            drive_body_index = drv_i - n_drives_brain
+            information['joint_i'] = (
+                drive_body_index
+                if self.single_osc_body
+                else drive_body_index//2
+            )
+            information['side'] = Side.from_index(
+                0
+                if self.single_osc_body
+                else (drv_i % 2)
+            )
+        else:  # BodyPartKind.LIMB
+            index_i = drv_i - n_drives_brain - n_drives_body
+            information['side'] = Side.from_index(
+                0
+                if self.single_osc_legs
+                else (index_i % 2)
+            )
+            n_drv_leg = self.n_oplj()*self.n_dof_legs
+            n_drv_leg_pair = 2*n_drv_leg
+            information['leg'] = index_i // n_drv_leg
+            information['leg_i'] = index_i // n_drv_leg_pair
+            information['side_i'] = Side.from_index(
+                0 if (index_i % n_drv_leg_pair) < n_drv_leg else 1
+            )
+            information['joint_i'] = (
+                (index_i % n_drv_leg) // self.n_oplj()
+            )
+        return information
+
+    def driveindex2name(self, index):
+        """Drive index to name"""
+        info = self.drvindex2information(index)
+        body_part_kind = info.pop('body_part_kind')
+        if body_part_kind is BodyPartKind.LIMB:
+            info.pop('leg')
+        return (
+            self.drive_brain_name(**info)
+            if body_part_kind is BodyPartKind.BRAIN
+            else self.drive_body_name(**info)
+            if body_part_kind is BodyPartKind.AXIAL
+            else self.drive_leg_name(**info)
+        )
