@@ -3,7 +3,7 @@
 include 'sensor_convention.pxd'
 cimport numpy as np
 import numpy as np
-from libc.math cimport sin, M_PI
+from libc.math cimport sin, M_PI, fmod
 
 
 cdef class PositionPhaseCy(JointsControlCy):
@@ -17,15 +17,13 @@ cdef class PositionPhaseCy(JointsControlCy):
     ):
         self.state = state
         self.osc_indices = osc_indices
-        self.weight = kwargs.pop('weight', 0)
-        self.offset = kwargs.pop('offset', 0)
         self.threshold = kwargs.pop('threshold', 0)
         super().__init__(**kwargs)
 
     cpdef void step(self, unsigned int iteration):
         """Step"""
-        cdef double pos, dif
-        cdef unsigned int joint_i, joint_data_i, osc_i
+        cdef double pos, pos_raw, dif
+        cdef unsigned int joint_i, joint_data_i, osc_i_0, osc_i_1
         cdef DTYPEv1 offsets = self.state.offsets(iteration)
         cdef DTYPEv1 phases = self.state.phases(iteration)
         cdef DTYPEv1 amplitudes = self.state.amplitudes(iteration)
@@ -35,20 +33,34 @@ cdef class PositionPhaseCy(JointsControlCy):
 
             # Data
             joint_data_i = self.indices[joint_i]
-            pos = self.joints_data.array[iteration, joint_data_i, JOINT_POSITION]
-            osc_i = self.osc_indices[0][joint_data_i]
-            assert osc_i < len(phases)
+            pos_raw = self.joints_data.array[iteration, joint_data_i, JOINT_POSITION]
+            pos = (  # Amphibious convention space
+                pos_raw - self.transform_bias[joint_data_i]
+            )/self.transform_gain[joint_data_i]
+            osc_i_0 = self.osc_indices[0][joint_i]
+            osc_i_1 = self.osc_indices[1][joint_i]
+            assert osc_i_0 < len(phases), (
+                f'{osc_i_0=} !< {len(phases)=}'
+                f'\n{joint_data_i=}'
+                f'\n{np.array(phases)=}'
+                f'\n{np.array(self.osc_indices)=}'
+            )
+            assert osc_i_1 >= len(phases), (
+                f'{osc_i_1=} !>= {len(phases)=}'
+                f'\n{joint_data_i=}'
+                f'\n{np.array(phases)=}'
+                f'\n{np.array(self.osc_indices)=}'
+            )
 
-            if amplitudes[osc_i] < self.threshold:  # Swimming
-                dif = (M_PI - pos) % (2*M_PI) - M_PI
-                if dif < - M_PI:
-                    dif += 2*M_PI
+            if amplitudes[osc_i_0] < self.threshold:  # Swimming
+                desired_angle =  0 + offsets[joint_data_i]
             else:  # Walking
-                dif = (phases[osc_i] - pos + M_PI) % (2*M_PI) - M_PI
-                if dif < - M_PI:
-                    dif += 2*M_PI
+                desired_angle =  phases[osc_i_0] + offsets[joint_data_i]
+            dif = fmod(desired_angle - pos + M_PI, 2*M_PI) - M_PI
+            if dif < -M_PI:
+                dif += 2*M_PI
             self.joints_data.array[iteration, joint_data_i, JOINT_CMD_POSITION] = (
                 self.transform_gain[joint_data_i]*(
-                    dif + pos + offsets[joint_data_i]
+                    dif + pos
                 ) + self.transform_bias[joint_data_i]
             )
