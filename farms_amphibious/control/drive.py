@@ -4,13 +4,16 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 import matplotlib.pyplot as plt
+from scipy.spatial.transform import Rotation
 from scipy.spatial import KDTree
 from simple_pid import PID
 
 from farms_core.io.yaml import yaml2pyobject
 from farms_core.array.types import NDARRAY_V1
 from farms_core.simulation.options import SimulationOptions
+
 from farms_amphibious.data.data import AmphibiousData
+from farms_amphibious.model.options import DriveKind
 
 from ..data.network import DriveArray
 
@@ -105,6 +108,53 @@ class CirclePotentialMap(PotentialMap):
         return self.origin + vectors
 
 
+class EllipsoidPotentialMap(PotentialMap):
+    """Ellipsoid potential map"""
+
+    def __init__(self, **kwargs):
+        super().__init__()
+        self.gain = kwargs.pop('gain', 1)
+        self.origin = np.array(kwargs.pop('origin', np.zeros(2)))
+        self.radius1 = kwargs.pop('radius1', 4)
+        self.radius2 = kwargs.pop('radius2', 3)
+        self.theta = kwargs.pop('theta', 0)
+        self.direction = kwargs.pop('direction', -1)
+        rotation = Rotation.from_euler('z', self.theta, degrees=False)
+        self.rotation = rotation.as_matrix()[:2, :2]
+        assert not kwargs, kwargs
+
+    def heading(self, pos):
+        """Heading"""
+        new_pos = np.dot(self.rotation.T, pos[:2]-self.origin)
+        pos_complex = complex(new_pos[0]/self.radius1, new_pos[1]/self.radius2)
+        r_dot = self.gain*(1-np.abs(pos_complex))
+        theta = np.angle(pos_complex)
+        angle = np.angle(
+            r_dot*np.exp(1j*theta)
+            + np.exp(1j*(theta+0.5*np.sign(self.direction)*np.pi))
+        )
+        vector = np.array([
+            self.radius1*np.cos(angle),
+            self.radius2*np.sin(angle),
+        ])
+        return np.arctan2(vector[1], vector[0]) + self.theta
+
+    def limit_cycle(self):
+        """Limit cycle"""
+        vectors_complex = [
+            1*np.exp(1j*theta)
+            for theta in np.linspace(0, 2*np.pi, 100)
+        ]
+        vectors = np.array([
+            np.dot(
+                self.rotation,
+                [self.radius1*vec.real, self.radius2*vec.imag],
+            )
+            for vec in vectors_complex
+        ])
+        return self.origin + vectors
+
+
 class DescendingDrive(ABC):
     """Descending drive"""
 
@@ -185,6 +235,7 @@ def get_orientation_follower_kwargs(
         'strategy': {
             'line': StraightLinePotentialMap,
             'circle': CirclePotentialMap,
+            'ellipsoid': EllipsoidPotentialMap,
             'disline': StraightLinePotentialMap,
             'discircle': CirclePotentialMap,
         }[potential_type](**potential_config),
@@ -212,17 +263,31 @@ class OrientationFollower(DescendingDrive):
         self.links_indices = np.array(kwargs.pop('links_indices', [0]))
         self.heading_offset = kwargs.pop('heading_offset', 0)
         self.contact_threshold = float(kwargs.pop('contact_threshold', 0))
+        self.current_time = 0
         self.pid = PID(
             Kp=kwargs.pop('pid_p', 0.2),
             Ki=kwargs.pop('pid_i', 0.0),
             Kd=kwargs.pop('pid_d', 0.0),
+            output_limits=kwargs.pop('output_limits', (-0.9, 0.9)),
             sample_time=timestep,
-            output_limits=kwargs.pop('output_limits', (-0.7, 0.7)),
+            time_fn=self.time
         )
         self.contact_value = 0  # Perceived contact at brain level
         self.fwds = np.zeros(self.n_drives)
         self.fwds_raw = np.zeros(self.n_drives)
         self.turn = 0
+        self.drive_types = [
+            DriveKind.BRAIN_LEFT
+            if index in self.drives.brain_left_indices
+            else DriveKind.BRAIN_RIGHT
+            if index in self.drives.brain_right_indices
+            else DriveKind.SPINE_LEFT
+            if index in self.drives.spine_left_indices
+            else DriveKind.SPINE_RIGHT
+            if index in self.drives.spine_right_indices
+            else None
+            for index in range(self.n_drives)
+        ]
         kwargs.pop('contact_threshold_dis', None)
         assert not kwargs, kwargs
 
@@ -245,20 +310,28 @@ class OrientationFollower(DescendingDrive):
 
     def update_turn_command(self, pos) -> float:
         """Update command"""
-        self.pid.setpoint = self.strategy.heading(pos)
-        return self.pid.setpoint
+        self.pid.setpoint = 0  # self.strategy.heading(pos)
+        return self.strategy.heading(pos)
+
+    def time(self):
+        """Time"""
+        return self.current_time
 
     def get_turn_control(
             self,
             iteration: int,
+            time: float,
             timestep: float,
             command: float,
             heading: float,
     ) -> float:
         """Update drive"""
+        command, heading = float(command), float(heading)
         error: float = ((command - heading + np.pi) % (2*np.pi)) - np.pi
-        value: float = self.pid(command-error, dt=timestep)
-        return -value
+        self.current_time = time
+        self.pid.setpoint = 0
+        val: float = self.pid(error)
+        return val
 
     def get_foward_control(self, iteration: int, timestep: float):
         """Update drive"""
@@ -277,11 +350,12 @@ class OrientationFollower(DescendingDrive):
         self.fwds_raw[:] = 2 if self.contact_value > threshold else 4
         return self.fwds_raw
 
-    def update_intention(self, iteration, timestep, pos, heading):
+    def update_intention(self, iteration, time, timestep, pos, heading):
         """Update drive"""
         self.setpoints[iteration] = self.update_turn_command(pos=pos)
         drive_turn = self.get_turn_control(
             iteration=iteration,
+            time=time,
             timestep=timestep,
             command=self.setpoints[iteration],
             heading=heading,
@@ -293,21 +367,25 @@ class OrientationFollower(DescendingDrive):
         )
         self.fwds += min(100*timestep, 1)*(drive_fwds-self.fwds)
         self.control[iteration] = self.turn
-        intention = [  # Intention of size n_drives for both brain and spine
+        intention = self.compute_intention()
+        self.write_to_brain(iteration)
+        return intention
+
+    def compute_intention(self):
+        """Compute intention"""
+        return [  # Intention of size n_drives for both brain and spine
             (self.fwds[index]-self.turn)
-            if (
-                    index in self.drives.spine_left_indices
-                    or index in self.drives.brain_left_indices
-            )
+            if self.drive_types[index]
+            in (DriveKind.SPINE_LEFT, DriveKind.BRAIN_LEFT)
             else (self.fwds[index]+self.turn)
-            if (
-                    index in self.drives.spine_right_indices
-                    or index in self.drives.brain_right_indices
-            )
+            if self.drive_types[index]
+            in (DriveKind.SPINE_RIGHT, DriveKind.BRAIN_RIGHT)
             else 0
             for index in range(self.n_drives)
         ]
-        # Write to brain
+
+    def write_to_brain(self, iteration):
+        """Write to brain"""
         for drive_index in self.drives.brain_left_indices:
             self.drives.array[
                 min(iteration, self.n_iterations-1),
@@ -318,12 +396,12 @@ class OrientationFollower(DescendingDrive):
                 min(iteration, self.n_iterations-1),
                 drive_index,
             ] = self.fwds[drive_index]+self.turn
-        return intention
 
     def step(self, iteration: int, time: float, timestep: float):
         """Step"""
         intention = self.update_intention(
             iteration=iteration,
+            time=time,
             timestep=timestep,
             pos=np.array(self.animat_data.sensors.links.urdf_position(
                 iteration=iteration,

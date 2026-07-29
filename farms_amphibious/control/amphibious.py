@@ -27,6 +27,9 @@ between the different Ekeberg muscle implementations.
 from typing import Callable
 
 import numpy as np
+import matplotlib.pyplot as plt
+import matplotlib.colors as mcolors
+
 from dm_control.rl.control import Task
 from dm_control.mjcf.physics import Physics
 
