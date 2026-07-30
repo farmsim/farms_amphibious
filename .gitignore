@@ -36,3 +36,4 @@ scripts/*test*
 *.dot
 farms_amphibious.egg-info
 *amd64.pxd
+*.pyd
