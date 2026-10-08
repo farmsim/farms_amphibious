@@ -263,7 +263,12 @@ class DriveArray(DriveArrayCy):
             contacts_indices=contacts_indices,
         )
 
-    def to_dict(self, iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         contacts_indices = self.contacts_indices
@@ -279,7 +284,7 @@ class DriveArray(DriveArrayCy):
                     contacts_indices_arr[indices_i, index_i] = positives[index]
             contacts_indices = contacts_indices_arr.tolist()
         return {
-            'array': self.array,
+            'array': to_array(self.array, iteration, start_iteration, skip),
             'brain_left_indices': to_array(self.brain_left_indices),
             'brain_right_indices': to_array(self.brain_right_indices),
             'spine_left_indices': to_array(self.spine_left_indices),
@@ -443,7 +448,12 @@ class Oscillators(OscillatorsCy):
             modular_amplitudes=dictionary['modular_amplitudes'],
         )
 
-    def to_dict(self, iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -469,7 +479,12 @@ class OscillatorConnectivity(OscillatorsConnectivityCy):
             desired_phases=dictionary['desired_phases'],
         )
 
-    def to_dict(self, iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -521,7 +536,12 @@ class JointsConnectivity(JointsConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, _iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            _iteration: int | None = None,
+            _start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         return {
             'connections': to_array(self.connections.array),
@@ -555,7 +575,12 @@ class ContactsConnectivity(ContactsConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, _iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            _iteration: int | None = None,
+            _start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         return {
             'connections': to_array(self.connections.array),
@@ -587,7 +612,12 @@ class XfrcConnectivity(XfrcConnectivityCy):
             weights=dictionary['weights'],
         )
 
-    def to_dict(self, iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
@@ -623,14 +653,19 @@ class NetworkParameters(NetworkParametersCy):
             ),
         ) if dictionary else None
 
-    def to_dict(self, iteration: int | None = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
         assert iteration is None or isinstance(iteration, int)
         return {
-            'drives': self.drives.to_dict(),
-            'oscillators': self.oscillators.to_dict(),
-            'osc2osc_map': self.osc2osc_map.to_dict(),
-            'joints2osc_map': self.joints2osc_map.to_dict(),
-            'contacts2osc_map': self.contacts2osc_map.to_dict(),
-            'xfrc2osc_map': self.xfrc2osc_map.to_dict(),
+            'drives': self.drives.to_dict(iteration, start_iteration, skip),
+            'oscillators': self.oscillators.to_dict(iteration, start_iteration, skip),
+            'osc2osc_map': self.osc2osc_map.to_dict(iteration, start_iteration, skip),
+            'joints2osc_map': self.joints2osc_map.to_dict(iteration, start_iteration, skip),
+            'contacts2osc_map': self.contacts2osc_map.to_dict(iteration, start_iteration, skip),
+            'xfrc2osc_map': self.xfrc2osc_map.to_dict(iteration, start_iteration, skip),
         }

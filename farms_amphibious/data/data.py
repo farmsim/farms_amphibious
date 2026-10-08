@@ -216,14 +216,20 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
     def from_file(cls, filename: str):
         """From file"""
         pylog.info('Loading data from %s', filename)
-        data = hdf5_to_dict(filename=filename)
+        data_experiment = hdf5_to_dict(filename=filename)
         pylog.info('loaded data from %s', filename)
+        data = data_experiment['animats'][0]
         data['n_oscillators'] = len(data['network']['oscillators']['names'])
         return cls.from_dict(data)
 
     @classmethod
     def from_dict(cls, dictionary: Dict):
         """Load data from dictionary"""
+        for key in [
+                'n_oscillators', 'state', 'network', 'sensors', 'joints',
+                'drive2joint_map',
+        ]:
+            assert key in dictionary, f'{key=} not in dictionary:\n{dictionary}'
         n_oscillators = dictionary.pop('n_oscillators')
         return cls(
             state=OscillatorNetworkState(dictionary['state'], n_oscillators),
@@ -235,15 +241,41 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
             sensors=SensorsData.from_dict(dictionary['sensors']),
         )
 
-    def to_dict(self, iteration: int = None) -> Dict:
+    def to_dict(
+            self,
+            iteration: int | None = None,
+            start_iteration: int | None = None,
+            skip: int = 1,
+    ) -> Dict:
         """Convert data to dictionary"""
-        data_dict = super().to_dict(iteration=iteration)
-        data_dict.update({
-            'state': to_array(self.state.array),
-            'network': self.network.to_dict(iteration),
-            'joints': to_array(self.joints.array),
-            'drive2joint_map': to_array(self.joints.drive2joint_map.array),
-        })
+        data_dict = super().to_dict(
+            iteration=iteration,
+            start_iteration=start_iteration,
+            skip=skip,
+        )
+        if self.state is not None:
+            data_dict.update({
+                'state': to_array(
+                    self.state.array,
+                    iteration,
+                    start_iteration,
+                    skip,
+                ),
+                'network': self.network.to_dict(
+                    iteration,
+                    start_iteration,
+                    skip,
+                ),
+                'joints': to_array(
+                    self.joints.array,
+                    iteration,
+                    start_iteration,
+                    skip,
+                ),
+                'drive2joint_map': to_array(
+                    self.joints.drive2joint_map.array,
+                ),
+            })
         return data_dict
 
     def plot(self, times: NDARRAY_V1) -> Dict:
@@ -251,7 +283,7 @@ class AmphibiousData(AmphibiousDataCy, AnimatData):
         plots = {}
         plots.update(self.state.plot(times))
         plots.update(self.plot_sensors(times))
-        plots['drives'] = self.network.drives.plot(times)
+        plots.update(self.network.drives.plot(times))
         return plots
 
 
